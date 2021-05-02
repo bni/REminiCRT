@@ -78,11 +78,6 @@ void Menu::drawString2(const char *str, int16_t y, int16_t x) {
 			_vid->PC_drawChar((uint8_t)str[len], y, x + len, true);
 		}
 		break;
-	case kResourceTypeMac:
-		for (; str[len]; ++len) {
-			_vid->MAC_drawStringChar(_vid->_frontLayer, _vid->_w, Video::CHAR_W * (x + len), Video::CHAR_H * y, _res->_fnt, _vid->_charFrontColor, (uint8_t)str[len]);
-		}
-		break;
 	}
 	_vid->markBlockAsDirty(x * w, y * h, len * w, h, _vid->_layerScale);
 }
@@ -102,7 +97,6 @@ void Menu::loadPicture(const char *prefix) {
 	memcpy(_vid->_backLayer, _vid->_frontLayer, _vid->_layerSize);
 	_res->load_PAL_menu(prefix, _res->_scratchBuffer);
 	_stub->setPalette(_res->_scratchBuffer, 256);
-	_vid->updateWidescreen();
 }
 
 void Menu::handleInfoScreen() {
@@ -511,8 +505,6 @@ const char *Menu::getLevelPassword(int level, int skill) const {
 			}
 		}
 		break;
-	case kResourceTypeMac:
-		return _passwordsMac[skill * 8 + level];
 	case kResourceTypeDOS:
 		// default
 		break;

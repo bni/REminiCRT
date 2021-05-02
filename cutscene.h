@@ -25,7 +25,7 @@ struct Cutscene {
 	enum {
 		kTextJustifyLeft = 0,
 		kTextJustifyAlign = 1,
-		kTextJustifyCenter = 2,
+		kTextJustifyCenter = 2
 	};
 
 	struct SetShape {

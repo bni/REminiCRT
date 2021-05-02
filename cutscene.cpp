@@ -146,12 +146,7 @@ uint16_t Cutscene::findTextSeparators(const uint8_t *p, int len) {
 
 void Cutscene::drawText(int16_t x, int16_t y, const uint8_t *p, uint16_t color, uint8_t *page, int textJustify) {
 	debug(DBG_CUT, "Cutscene::drawText(x=%d, y=%d, c=%d, justify=%d)", x, y, color, textJustify);
-	int len = 0;
-	if (_res->_type == kResourceTypeMac) {
-		len = *p++;
-	} else {
-		len = strlen((const char *)p);
-	}
+	int len = strlen((const char *)p);
 	Video::drawCharFunc dcf = _vid->_drawChar;
 	const uint8_t *fnt = (_res->_lang == LANG_JP) ? Video::_font8Jp : _res->_fnt;
 	uint16_t lastSep = 0;
@@ -950,11 +945,6 @@ void Cutscene::op_handleKeys() {
 		_cmdPtr = getCommandData();
 		n = READ_BE_UINT16(_cmdPtr + n * 2 + 2);
 	}
-	if (_res->isMac()) {
-		_cmdPtr = getCommandData();
-		_baseOffset = READ_BE_UINT16(_cmdPtr + 2 + n * 2);
-		n = 0;
-	}
 	_cmdPtr = _cmdPtrBak = getCommandData() + n + _baseOffset;
 }
 
@@ -981,15 +971,10 @@ void Cutscene::mainLoop(uint16_t num) {
 	_hasAlphaColor = false;
 	const uint8_t *p = getCommandData();
 	int offset = 0;
-	if (_res->isMac()) {
-		// const int count = READ_BE_UINT16(p);
-		_baseOffset = READ_BE_UINT16(p + 2 + num * 2);
-	} else {
-		if (num != 0) {
-			offset = READ_BE_UINT16(p + 2 + num * 2);
-		}
-		_baseOffset = (READ_BE_UINT16(p) + 1) * 2;
-	}
+    if (num != 0) {
+        offset = READ_BE_UINT16(p + 2 + num * 2);
+    }
+    _baseOffset = (READ_BE_UINT16(p) + 1) * 2;
 	_varKey = 0;
 	_cmdPtr = _cmdPtrBak = p + _baseOffset + offset;
 	_polPtr = getPolygonData();
@@ -1047,9 +1032,6 @@ bool Cutscene::load(uint16_t cutName) {
 		_res->load(name, Resource::OT_CMD);
 		_res->load(name, Resource::OT_POL);
 		break;
-	case kResourceTypeMac:
-		_res->MAC_loadCutscene(name);
-		break;
 	}
 	_res->load_CINE();
 	return _res->_cmd && _res->_pol;
@@ -1063,9 +1045,6 @@ void Cutscene::unload() {
 	case kResourceTypeDOS:
 		_res->unload(Resource::OT_CMD);
 		_res->unload(Resource::OT_POL);
-		break;
-	case kResourceTypeMac:
-		_res->MAC_unloadCutscene();
 		break;
 	}
 }
@@ -1092,10 +1071,6 @@ void Cutscene::prepare() {
 }
 
 void Cutscene::playCredits() {
-	if (_res->isMac()) {
-		warning("Cutscene::playCredits() unimplemented");
-		return;
-	}
 	_textCurPtr = _res->isAmiga() ? _creditsDataAmiga : _creditsDataDOS;
 	_textBuf[0] = 0xA;
 	_textCurBuf = _textBuf;

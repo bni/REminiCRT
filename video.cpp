@@ -4,16 +4,15 @@
  * Copyright (C) 2005-2019 Gregory Montoir (cyx@users.sourceforge.net)
  */
 
-#include "decode_mac.h"
 #include "resource.h"
 #include "systemstub.h"
 #include "unpack.h"
 #include "util.h"
 #include "video.h"
 
-Video::Video(Resource *res, SystemStub *stub, WidescreenMode widescreenMode)
-	: _res(res), _stub(stub), _widescreenMode(widescreenMode) {
-	_layerScale = (_res->_type == kResourceTypeMac) ? 2 : 1; // Macintosh version is 512x448
+Video::Video(Resource *res, SystemStub *stub)
+	: _res(res), _stub(stub) {
+	_layerScale = 1;
 	_w = GAMESCREEN_W * _layerScale;
 	_h = GAMESCREEN_H * _layerScale;
 	_layerSize = _w * _h;
@@ -34,9 +33,6 @@ Video::Video(Resource *res, SystemStub *stub, WidescreenMode widescreenMode)
 		break;
 	case kResourceTypeDOS:
 		_drawChar = &Video::PC_drawStringChar;
-		break;
-	case kResourceTypeMac:
-		_drawChar = &Video::MAC_drawStringChar;
 		break;
 	}
 }
@@ -112,18 +108,6 @@ void Video::updateScreen() {
 	if (_shakeOffset != 0) {
 		_shakeOffset = 0;
 		_fullRefresh = true;
-	}
-}
-
-void Video::updateWidescreen() {
-	if (_stub->hasWidescreen()) {
-		if (_widescreenMode == kWidescreenMirrorRoom) {
-			_stub->copyWidescreenMirror(_w, _h, _backLayer);
-		} else if (_widescreenMode == kWidescreenBlur) {
-			_stub->copyWidescreenBlur(_w, _h, _backLayer);
-		} else {
-			_stub->clearWidescreen();
-		}
 	}
 }
 
@@ -946,24 +930,6 @@ void Video::PC_drawStringChar(uint8_t *dst, int pitch, int x, int y, const uint8
 	}
 }
 
-static uint8_t _MAC_fontFrontColor;
-static uint8_t _MAC_fontShadowColor;
-
-void Video::MAC_drawStringChar(uint8_t *dst, int pitch, int x, int y, const uint8_t *src, uint8_t color, uint8_t chr) {
-	DecodeBuffer buf;
-	memset(&buf, 0, sizeof(buf));
-	buf.ptr = dst;
-	buf.w = buf.pitch = _w;
-	buf.h = _h;
-	buf.x = x * _layerScale;
-	buf.y = y * _layerScale;
-	buf.setPixel = Video::MAC_setPixelFont;
-	_MAC_fontFrontColor = color;
-	_MAC_fontShadowColor = _charShadowColor;
-	assert(chr >= 32);
-	_res->MAC_decodeImageData(_res->_fnt, chr - 32, &buf);
-}
-
 const char *Video::drawString(const char *str, int16_t x, int16_t y, uint8_t col) {
 	debug(DBG_VIDEO, "Video::drawString('%s', %d, %d, 0x%X)", str, x, y, col);
 	const uint8_t *fnt = (_res->_lang == LANG_JP) ? _font8Jp : _res->_fnt;
@@ -1002,83 +968,10 @@ Color Video::AMIGA_convertColor(const uint16_t color, bool bgr) { // 4bits to 8b
 	return c;
 }
 
-void Video::MAC_decodeMap(int level, int room) {
-	DecodeBuffer buf;
-	memset(&buf, 0, sizeof(buf));
-	buf.ptr = _frontLayer;
-	buf.w = buf.pitch = _w;
-	buf.h = _h;
-	buf.setPixel = Video::MAC_setPixel;
-	_res->MAC_loadLevelRoom(level, room, &buf);
-	memcpy(_backLayer, _frontLayer, _layerSize);
-	Color roomPalette[256];
-	_res->MAC_setupRoomClut(level, room, roomPalette);
-	for (int j = 0; j < 16; ++j) {
-		if (j == 5 || j == 7 || j == 14 || j == 15) {
-			continue;
-		}
-		for (int i = 0; i < 16; ++i) {
-			const int color = j * 16 + i;
-			_stub->setPaletteEntry(color, &roomPalette[color]);
-		}
-	}
-}
-
-void Video::MAC_setPixel(DecodeBuffer *buf, int x, int y, uint8_t color) {
-	const int offset = y * buf->pitch + x;
-	buf->ptr[offset] = color;
-}
-
-void Video::MAC_setPixelMask(DecodeBuffer *buf, int x, int y, uint8_t color) {
-	const int offset = y * buf->pitch + x;
-	if ((buf->ptr[offset] & 0x80) == 0) {
-		buf->ptr[offset] = color;
-	}
-}
-
-void Video::MAC_setPixelFont(DecodeBuffer *buf, int x, int y, uint8_t color) {
-	const int offset = y * buf->pitch + x;
-	switch (color) {
-	case 0xC0:
-		buf->ptr[offset] = _MAC_fontShadowColor;
-		break;
-	case 0xC1:
-		buf->ptr[offset] = _MAC_fontFrontColor;
-		break;
-	}
-}
-
 void Video::fillRect(int x, int y, int w, int h, uint8_t color) {
 	uint8_t *p = _frontLayer + y * _layerScale * _w + x * _layerScale;
 	for (int j = 0; j < h * _layerScale; ++j) {
 		memset(p, color, w * _layerScale);
 		p += _w;
-	}
-}
-
-static void fixOffsetDecodeBuffer(DecodeBuffer *buf, const uint8_t *dataPtr) {
-        if (buf->xflip) {
-                buf->x += (int16_t)READ_BE_UINT16(dataPtr + 4) - READ_BE_UINT16(dataPtr) - 1;
-        } else {
-                buf->x -= (int16_t)READ_BE_UINT16(dataPtr + 4);
-        }
-        buf->y -= (int16_t)READ_BE_UINT16(dataPtr + 6);
-}
-
-void Video::MAC_drawSprite(int x, int y, const uint8_t *data, int frame, bool xflip, bool eraseBackground) {
-	const uint8_t *dataPtr = _res->MAC_getImageData(data, frame);
-	if (dataPtr) {
-		DecodeBuffer buf;
-		memset(&buf, 0, sizeof(buf));
-		buf.xflip = xflip;
-		buf.ptr = _frontLayer;
-		buf.w = buf.pitch = _w;
-		buf.h = _h;
-		buf.x = x * _layerScale;
-		buf.y = y * _layerScale;
-		buf.setPixel = eraseBackground ? MAC_setPixel : MAC_setPixelMask;
-		fixOffsetDecodeBuffer(&buf, dataPtr);
-		_res->MAC_decodeImageData(data, frame, &buf);
-		markBlockAsDirty(buf.x, buf.y, READ_BE_UINT16(dataPtr), READ_BE_UINT16(dataPtr + 2), 1);
 	}
 }

@@ -8,8 +8,7 @@
 #define RESOURCE_H__
 
 #include "intern.h"
-#include "resource_aba.h"
-#include "resource_mac.h"
+#include "file.h"
 
 struct DecodeBuffer;
 struct File;
@@ -126,11 +125,8 @@ struct Resource {
 	ResourceType _type;
 	Language _lang;
 	bool _isDemo;
-	ResourceAba *_aba;
-	ResourceMac *_mac;
 	uint16_t (*_readUint16)(const void *);
 	uint32_t (*_readUint32)(const void *);
-	bool _hasSeqData;
 	char _entryName[32];
 	uint8_t *_fnt;
 	uint8_t *_mbk;
@@ -191,7 +187,6 @@ struct Resource {
 
 	bool isDOS()   const { return _type == kResourceTypeDOS; }
 	bool isAmiga() const { return _type == kResourceTypeAmiga; }
-	bool isMac()   const { return _type == kResourceTypeMac; }
 
 	bool fileExists(const char *filename);
 
@@ -237,22 +232,10 @@ struct Resource {
 	void load_BNQ(File *pf);
 	void load_SPM(File *f);
 	const uint8_t *getAniData(int num) const {
-		if (_type == kResourceTypeMac) {
-			const int count = READ_BE_UINT16(_ani);
-			assert(num < count);
-			const int offset = READ_BE_UINT16(_ani + 2 + num * 2);
-			return _ani + offset;
-		}
 		const int offset = _readUint16(_ani + 2 + num * 2);
 		return _ani + 2 + offset;
 	}
 	const uint8_t *getTextString(int level, int num) const {
-		if (_type == kResourceTypeMac) {
-			const int count = READ_BE_UINT16(_tbn);
-			assert(num < count);
-			const int offset = READ_BE_UINT16(_tbn + 2 + num * 2);
-			return _tbn + offset;
-		}
 		if (_lang == LANG_JP) {
 			const uint8_t *p = 0;
 			switch (level) {
@@ -285,21 +268,9 @@ struct Resource {
 		return _tbn + _readUint16(_tbn + num * 2);
 	}
 	const uint8_t *getGameString(int num) const {
-		if (_type == kResourceTypeMac) {
-			const int count = READ_BE_UINT16(_str);
-			assert(num < count);
-			const int offset = READ_BE_UINT16(_str + 2 + num * 2);
-			return _str + offset;
-		}
 		return _stringsTable + READ_LE_UINT16(_stringsTable + num * 2);
 	}
 	const uint8_t *getCineString(int num) const {
-		if (_type == kResourceTypeMac) {
-			const int count = READ_BE_UINT16(_cine_txt);
-			assert(num < count);
-			const int offset = READ_BE_UINT16(_cine_txt + 2 + num * 2);
-			return _cine_txt + offset;
-		}
 		if (_lang == LANG_JP) {
 			const int offset = READ_BE_UINT16(LocaleData::_cineBinJP + num * 2);
 			return LocaleData::_cineTxtJP + offset;
@@ -317,64 +288,6 @@ struct Resource {
 	int getBankDataSize(uint16_t num);
 	uint8_t *findBankData(uint16_t num);
 	uint8_t *loadBankData(uint16_t num);
-
-	uint8_t *decodeResourceMacData(const char *name, bool decompressLzss);
-	void MAC_decodeImageData(const uint8_t *ptr, int i, DecodeBuffer *dst);
-	void MAC_decodeDataCLUT(const uint8_t *ptr);
-	void MAC_loadClutData();
-	void MAC_loadFontData();
-	void MAC_loadIconData();
-	void MAC_loadPersoData();
-	void MAC_loadMonsterData(const char *name, Color *clut);
-	void MAC_loadTitleImage(int i, DecodeBuffer *buf);
-	void MAC_unloadLevelData();
-	void MAC_loadLevelData(int level);
-	void MAC_loadLevelRoom(int level, int i, DecodeBuffer *dst);
-	void MAC_clearClut16(Color *clut, uint8_t dest);
-	void MAC_copyClut16(Color *clut, uint8_t dest, uint8_t src);
-	void MAC_setupRoomClut(int level, int room, Color *clut);
-	const uint8_t *MAC_getImageData(const uint8_t *ptr, int i);
-	bool MAC_hasLevelMap(int level, int room) const;
-	void MAC_unloadCutscene();
-	void MAC_loadCutscene(const char *cutscene);
-	void MAC_loadCutsceneText();
-	void MAC_loadCreditsText();
-	void MAC_loadSounds();
-
-	int MAC_getPersoFrame(int anim) const {
-		static const int data[] = {
-			0x000, 0x22E,
-			0x28E, 0x2E9,
-			0x4E9, 0x506,
-			-1
-		};
-		int offset = 0;
-		for (int i = 0; data[i] != -1; i += 2) {
-			if (anim >= data[i] && anim <= data[i + 1]) {
-				return offset + anim - data[i];
-			}
-			const int count = data[i + 1] + 1 - data[i];
-			offset += count;
-		}
-		assert(0);
-		return 0;
-	}
-	int MAC_getMonsterFrame(int anim) const {
-		static const int data[] = {
-			0x22F, 0x28D, // junky - 94
-			0x2EA, 0x385, // mercenai - 156
-			0x387, 0x42F, // replican - 169
-			0x430, 0x4E8, // glue - 185
-			-1
-		};
-		for (int i = 0; data[i] != -1; i += 2) {
-			if (anim >= data[i] && anim <= data[i + 1]) {
-				return anim - data[i];
-			}
-		}
-		assert(0);
-		return 0;
-	}
 };
 
 #endif // RESOURCE_H__

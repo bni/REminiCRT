@@ -4,7 +4,6 @@
  * Copyright (C) 2005-2019 Gregory Montoir (cyx@users.sourceforge.net)
  */
 
-#include "decode_mac.h"
 #include "file.h"
 #include "fs.h"
 #include "resource.h"
@@ -17,8 +16,6 @@ Resource::Resource(FileSystem *fs, ResourceType ver, Language lang) {
 	_type = ver;
 	_lang = lang;
 	_isDemo = false;
-	_aba = 0;
-	_mac = 0;
 	_readUint16 = (_type == kResourceTypeDOS) ? READ_LE_UINT16 : READ_BE_UINT16;
 	_readUint32 = (_type == kResourceTypeDOS) ? READ_LE_UINT32 : READ_BE_UINT32;
 	_scratchBuffer = (uint8_t *)malloc(kScratchBufferSize);
@@ -36,7 +33,6 @@ Resource::Resource(FileSystem *fs, ResourceType ver, Language lang) {
 
 Resource::~Resource() {
 	clearLevelRes();
-	MAC_unloadLevelData();
 	free(_fnt);
 	free(_icn);
 	free(_tab);
@@ -52,8 +48,6 @@ Resource::~Resource() {
 	}
 	free(_sfxList);
 	free(_bankData);
-	delete _aba;
-	delete _mac;
 }
 
 void Resource::init() {
@@ -62,22 +56,9 @@ void Resource::init() {
 		_isDemo = _fs->exists("demo.lev");
 		break;
 	case kResourceTypeDOS:
-		if (_fs->exists(ResourceAba::FILENAME)) { // fbdemous
-			_aba = new ResourceAba(_fs);
-			_aba->readEntries();
-			_isDemo = true;
-		}
 		if (!fileExists("LEVEL1.MAP")) { // fbdemofr (no cutscenes)
 			_isDemo = true;
 		}
-		break;
-	case kResourceTypeMac:
-		if (_fs->exists(ResourceMac::FILENAME1)) {
-			_mac = new ResourceMac(ResourceMac::FILENAME1, _fs);
-		} else if (_fs->exists(ResourceMac::FILENAME2)) {
-			_mac = new ResourceMac(ResourceMac::FILENAME2, _fs);
-		}
-		_mac->load();
 		break;
 	}
 }
@@ -99,8 +80,6 @@ void Resource::setLanguage(Language lang) {
 bool Resource::fileExists(const char *filename) {
 	if (_fs->exists(filename)) {
 		return true;
-	} else if (_aba) {
-		return _aba->findEntry(filename) != 0;
 	}
 	return false;
 }
@@ -127,12 +106,6 @@ void Resource::load_DEM(const char *filename) {
 		_dem = (uint8_t *)malloc(_demLen);
 		if (_dem) {
 			f.read(_dem, _demLen);
-		}
-	} else if (_aba) {
-		uint32_t size;
-		_dem = _aba->loadEntry(filename, &size);
-		if (_dem) {
-			_demLen = size;
 		}
 	}
 }
@@ -247,17 +220,6 @@ void Resource::load_MAP_menu(const char *fileName, uint8_t *dstPtr) {
 			error("I/O error when reading '%s'", _entryName);
 		}
 		return;
-	} else if (_aba) {
-		uint32_t size = 0;
-		uint8_t *dat = _aba->loadEntry(_entryName, &size);
-		if (dat) {
-			if (size != kMenuMapSize) {
-				error("Unexpected size %d for '%s'", size, _entryName);
-			}
-			memcpy(dstPtr, dat, size);
-			free(dat);
-			return;
-		}
 	}
 	error("Cannot load '%s'", _entryName);
 }
@@ -275,17 +237,6 @@ void Resource::load_PAL_menu(const char *fileName, uint8_t *dstPtr) {
 			error("I/O error when reading '%s'", _entryName);
 		}
 		return;
-	} else if (_aba) {
-		uint32_t size = 0;
-		uint8_t *dat = _aba->loadEntry(_entryName, &size);
-		if (dat) {
-			if (size != kMenuPalSize) {
-				error("Unexpected size %d for '%s'", size, _entryName);
-			}
-			memcpy(dstPtr, dat, size);
-			free(dat);
-			return;
-		}
 	}
 	error("Cannot load '%s'", _entryName);
 }
@@ -323,8 +274,6 @@ void Resource::load_SPR_OFF(const char *fileName, uint8_t *sprData) {
 		if (f.ioErr()) {
 			error("I/O error when reading '%s'", _entryName);
 		}
-	} else if (_aba) {
-		offData = _aba->loadEntry(_entryName);
 	}
 	if (offData) {
 		const uint8_t *p = offData;
@@ -418,8 +367,6 @@ void Resource::load_CINE() {
 				if (f.ioErr()) {
 					error("I/O error when reading '%s'", _entryName);
 				}
-			} else if (_aba) {
-				_cine_off = _aba->loadEntry(_entryName);
 			} else if (_isDemo) {
 				return; // some demos do not have cutscene datafiles
 			}
@@ -443,8 +390,6 @@ void Resource::load_CINE() {
 				if (f.ioErr()) {
 					error("I/O error when reading '%s'", _entryName);
 				}
-			} else if (_aba) {
-				_cine_txt = _aba->loadEntry(_entryName);
 			} else if (_isDemo) {
 				return; // some demos do not have cutscene datafiles
 			}
@@ -452,9 +397,6 @@ void Resource::load_CINE() {
 		if (!_cine_txt) {
 			error("Cannot load '%s'", _entryName);
 		}
-		break;
-	case kResourceTypeMac:
-		MAC_loadCutsceneText();
 		break;
 	}
 }
@@ -675,69 +617,7 @@ void Resource::load(const char *objName, int objType, const char *ext) {
 			error("I/O error when reading '%s'", _entryName);
 		}
 	} else {
-		if (_aba) {
-			uint32_t size;
-			uint8_t *dat = _aba->loadEntry(_entryName, &size);
-			if (dat) {
-				switch (objType) {
-				case OT_MBK:
-					_mbk = dat;
-					break;
-				case OT_PGE:
-					decodePGE(dat, size);
-					break;
-				case OT_PAL:
-					_pal = dat;
-					break;
-				case OT_CT:
-					if (!bytekiller_unpack((uint8_t *)_ctData, sizeof(_ctData), dat, size)) {
-						error("Bad CRC for '%s'", _entryName);
-					}
-					free(dat);
-					break;
-				case OT_SPC:
-					_spc = dat;
-					_numSpc = READ_BE_UINT16(_spc) / 2;
-					break;
-				case OT_RP:
-					if (size != 0x4A) {
-						error("Unexpected size %d for '%s'", size, _entryName);
-					}
-					memcpy(_rp, dat, size);
-					free(dat);
-					break;
-				case OT_ICN:
-					_icn = dat;
-					break;
-				case OT_FNT:
-					_fnt = dat;
-					break;
-				case OT_OBJ:
-					_numObjectNodes = READ_LE_UINT16(dat);
-					assert(_numObjectNodes == 230);
-					decodeOBJ(dat + 2, size - 2);
-					break;
-				case OT_ANI:
-					_ani = dat;
-					break;
-				case OT_TBN:
-					_tbn = dat;
-					break;
-				case OT_CMD:
-					_cmd = dat;
-					break;
-				case OT_POL:
-					_pol = dat;
-					break;
-				case OT_BNQ:
-					_bnq = dat;
-					break;
-				default:
-					error("Cannot load '%s' type %d", _entryName, objType);
-				}
-				return;
-			}
-		} else if (_isDemo) {
+		if (_isDemo) {
 			// some demos (fbdemofr.zip) do not have the cutscene datafiles included
 			switch (objType) {
 			case OT_CMD:
@@ -970,10 +850,6 @@ void Resource::decodeOBJ(const uint8_t *tmp, int size) {
 	uint32_t offsets[256];
 	int tmpOffset = 0;
 	_numObjectNodes = 230;
-	if (_type == kResourceTypeMac) {
-		_numObjectNodes = _readUint16(tmp);
-		tmpOffset += 2;
-	}
 	for (int i = 0; i < _numObjectNodes; ++i) {
 		offsets[i] = _readUint32(tmp + tmpOffset); tmpOffset += 4;
 	}
@@ -1377,9 +1253,6 @@ int Resource::getBankDataSize(uint16_t num) {
 			len &= 0x7FFF;
 		}
 		break;
-	case kResourceTypeMac:
-		assert(0); // different graphics format
-		break;
 	}
 	return len * 32;
 }
@@ -1423,328 +1296,4 @@ uint8_t *Resource::loadBankData(uint16_t num) {
 	uint8_t *bankData = _bankDataHead;
 	_bankDataHead += size;
 	return bankData;
-}
-
-uint8_t *Resource::decodeResourceMacData(const char *name, bool decompressLzss) {
-	_resourceMacDataSize = 0;
-	uint8_t *data = 0;
-	const ResourceMacEntry *entry = _mac->findEntry(name);
-	if (entry) {
-		_mac->_f.seek(_mac->_dataOffset + entry->dataOffset);
-		_resourceMacDataSize = _mac->_f.readUint32BE();
-		if (decompressLzss) {
-			data = decodeLzss(_mac->_f, _resourceMacDataSize);
-		} else {
-			data = (uint8_t *)malloc(_resourceMacDataSize);
-			if (data) {
-				_mac->_f.read(data, _resourceMacDataSize);
-			}
-		}
-	} else {
-		error("Resource '%s' not found", name);
-	}
-	return data;
-}
-
-void Resource::MAC_decodeImageData(const uint8_t *ptr, int i, DecodeBuffer *dst) {
-	const uint8_t *basePtr = ptr;
-	const uint16_t sig = READ_BE_UINT16(ptr); ptr += 2;
-	assert(sig == 0xC211 || sig == 0xC103);
-	const int count = READ_BE_UINT16(ptr); ptr += 2;
-	assert(i < count);
-	ptr += 4;
-	const uint32_t offset = READ_BE_UINT32(ptr + i * 4);
-	if (offset != 0) {
-		ptr = basePtr + offset;
-		const int w = READ_BE_UINT16(ptr); ptr += 2;
-		const int h = READ_BE_UINT16(ptr); ptr += 2;
-		switch (sig) {
-		case 0xC211:
-			decodeC211(ptr + 4, w, h, dst);
-			break;
-		case 0xC103:
-			decodeC103(ptr, w, h, dst);
-			break;
-		}
-	}
-}
-
-void Resource::MAC_decodeDataCLUT(const uint8_t *ptr) {
-	ptr += 6; // seed+flags
-	_clutSize = READ_BE_UINT16(ptr); ptr += 2;
-	assert(_clutSize < kClutSize);
-	for (int i = 0; i < _clutSize; ++i) {
-		const int index = READ_BE_UINT16(ptr); ptr += 2;
-		assert(i == index);
-		// ignore lower bits
-		_clut[i].r = ptr[0]; ptr += 2;
-		_clut[i].g = ptr[0]; ptr += 2;
-		_clut[i].b = ptr[0]; ptr += 2;
-	}
-}
-
-void Resource::MAC_loadClutData() {
-	uint8_t *ptr = decodeResourceMacData("Flashback colors", false);
-	if (ptr) {
-		MAC_decodeDataCLUT(ptr);
-		free(ptr);
-	}
-}
-
-void Resource::MAC_loadFontData() {
-	_fnt = decodeResourceMacData("Font", true);
-}
-
-void Resource::MAC_loadIconData() {
-	_icn = decodeResourceMacData("Icons", true);
-}
-
-void Resource::MAC_loadPersoData() {
-	_perso = decodeResourceMacData("Person", true);
-}
-
-void Resource::MAC_loadMonsterData(const char *name, Color *clut) {
-	static const struct {
-		const char *id;
-		const char *name;
-		int index;
-	} data[] = {
-		{ "junky", "Junky", 0x32 },
-		{ "mercenai", "Mercenary", 0x34 },
-		{ "replican", "Replicant", 0x35 },
-		{ "glue", "Alien", 0x36 },
-		{ 0, 0, 0 }
-	};
-	free(_monster);
-	_monster = 0;
-	for (int i = 0; data[i].id; ++i) {
-		if (strcmp(data[i].id, name) == 0) {
-			_monster = decodeResourceMacData(data[i].name, true);
-			assert(_monster);
-			MAC_copyClut16(clut, 5, data[i].index);
-			break;
-		}
-	}
-}
-
-void Resource::MAC_loadTitleImage(int i, DecodeBuffer *buf) {
-	char name[64];
-	snprintf(name, sizeof(name), "Title %d", i);
-	uint8_t *ptr = decodeResourceMacData(name, (i == 6));
-	if (ptr) {
-		MAC_decodeImageData(ptr, 0, buf);
-		free(ptr);
-	}
-}
-
-void Resource::MAC_unloadLevelData() {
-	free(_ani);
-	_ani = 0;
-	ObjectNode *prevNode = 0;
-	for (int i = 0; i < _numObjectNodes; ++i) {
-		if (prevNode != _objectNodesMap[i]) {
-			free(_objectNodesMap[i]);
-			prevNode = _objectNodesMap[i];
-		}
-	}
-	_numObjectNodes = 0;
-	free(_tbn);
-	_tbn = 0;
-	free(_str);
-	_str = 0;
-}
-
-static const int _macLevelColorOffsets[] = { 24, 28, 36, 40, 44 }; // red palette: 32
-static const char *_macLevelNumbers[] = { "1", "2", "3", "4-1", "4-2", "5-1", "5-2" };
-
-void Resource::MAC_loadLevelData(int level) {
-	char name[64];
-	// .PGE
-	snprintf(name, sizeof(name), "Level %s objects", _macLevelNumbers[level]);
-	uint8_t *ptr = decodeResourceMacData(name, true);
-	if (ptr) {
-		decodePGE(ptr, _resourceMacDataSize);
-		free(ptr);
-	} else {
-		error("Failed to load '%s'", name);
-	}
-	// .ANI
-	snprintf(name, sizeof(name), "Level %s sequences", _macLevelNumbers[level]);
-	_ani = decodeResourceMacData(name, true);
-	if (_ani) {
-		assert(READ_BE_UINT16(_ani) == 0x48D);
-	} else {
-		error("Failed to load '%s'", name);
-	}
-	// .OBJ
-	snprintf(name, sizeof(name), "Level %s conditions", _macLevelNumbers[level]);
-	ptr = decodeResourceMacData(name, true);
-	if (ptr) {
-		assert(READ_BE_UINT16(ptr) == 0xE6);
-		decodeOBJ(ptr, _resourceMacDataSize);
-		free(ptr);
-	} else {
-		error("Failed to load '%s'", name);
-	}
-	// .CT
-	snprintf(name, sizeof(name), "Level %c map", _macLevelNumbers[level][0]);
-	ptr = decodeResourceMacData(name, true);
-	if (ptr) {
-		assert(_resourceMacDataSize == 0x1D00);
-		memcpy(_ctData, ptr, _resourceMacDataSize);
-		free(ptr);
-	} else {
-		error("Failed to load '%s'", name);
-	}
-	// .SPC
-	snprintf(name, sizeof(name), "Objects %c", _macLevelNumbers[level][0]);
-	_spc = decodeResourceMacData(name, true);
-	// .TBN
-	snprintf(name, sizeof(name), "Level %s names", _macLevelNumbers[level]);
-	_tbn = decodeResourceMacData(name, false);
-
-	_str = decodeResourceMacData("Flashback strings", false);
-}
-
-void Resource::MAC_loadLevelRoom(int level, int i, DecodeBuffer *dst) {
-	char name[64];
-	snprintf(name, sizeof(name), "Level %c Room %d", _macLevelNumbers[level][0], i);
-	uint8_t *ptr = decodeResourceMacData(name, true);
-	if (ptr) {
-		MAC_decodeImageData(ptr, 0, dst);
-		free(ptr);
-	}
-}
-
-void Resource::MAC_clearClut16(Color *clut, uint8_t dest) {
-        memset(&clut[dest * 16], 0, 16 * sizeof(Color));
-}
-
-void Resource::MAC_copyClut16(Color *clut, uint8_t dest, uint8_t src) {
-	memcpy(&clut[dest * 16], &_clut[src * 16], 16 * sizeof(Color));
-}
-
-void Resource::MAC_setupRoomClut(int level, int room, Color *clut) {
-	const int num = _macLevelNumbers[level][0] - '1';
-	int offset = _macLevelColorOffsets[num];
-	if (level == 1) {
-		switch (room) {
-		case 27:
-		case 28:
-		case 29:
-		case 30:
-		case 35:
-		case 36:
-		case 37:
-		case 45:
-		case 46:
-			offset = 32;
-			break;
-		}
-	}
-	for (int i = 0; i < 4; ++i) {
-		MAC_copyClut16(clut, i, offset + i);
-		MAC_copyClut16(clut, 8 + i, offset + i);
-	}
-	MAC_copyClut16(clut, 4, 0x30);
-	// 5 is monster palette
-	MAC_clearClut16(clut, 6);
-	MAC_copyClut16(clut, 0xA, _macLevelColorOffsets[0] + 2);
-	MAC_copyClut16(clut, 0xC, 0x37);
-	MAC_copyClut16(clut, 0xD, 0x38);
-}
-
-const uint8_t *Resource::MAC_getImageData(const uint8_t *ptr, int i) {
-	const uint8_t *basePtr = ptr;
-	const uint16_t sig = READ_BE_UINT16(ptr); ptr += 2;
-	assert(sig == 0xC211);
-	const int count = READ_BE_UINT16(ptr); ptr += 2;
-	assert(i < count);
-	ptr += 4;
-	const uint32_t offset = READ_BE_UINT32(ptr + i * 4);
-	return (offset != 0) ? basePtr + offset : 0;
-}
-
-bool Resource::MAC_hasLevelMap(int level, int room) const {
-	char name[64];
-	snprintf(name, sizeof(name), "Level %c Room %d", _macLevelNumbers[level][0], room);
-	return _mac->findEntry(name) != 0;
-}
-
-static void stringLowerCase(char *p) {
-	while (*p) {
-		if (*p >= 'A' && *p <= 'Z') {
-			*p += 'a' - 'A';
-		}
-		++p;
-	}
-}
-
-void Resource::MAC_unloadCutscene() {
-	free(_cmd);
-	_cmd = 0;
-	free(_pol);
-	_pol = 0;
-}
-
-void Resource::MAC_loadCutscene(const char *cutscene) {
-	char name[32];
-	free(_cmd);
-	snprintf(name, sizeof(name), "%s movie", cutscene);
-	stringLowerCase(name);
-	_cmd = decodeResourceMacData(name, true);
-	free(_pol);
-	snprintf(name, sizeof(name), "%s polygons", cutscene);
-	stringLowerCase(name);
-	_pol = decodeResourceMacData(name, true);
-}
-
-void Resource::MAC_loadCutsceneText() {
-	_cine_txt = decodeResourceMacData("Movie strings", false);
-	_cine_off = 0; // offsets are prepended to _cine_txt
-}
-
-void Resource::MAC_loadCreditsText() {
-	_credits = decodeResourceMacData("Credit strings", false);
-}
-
-void Resource::MAC_loadSounds() {
-	static const int8_t table[NUM_SFXS] = {
-		0, -1,  1,  2,  3,  4, -1,  5,  6,  7,  8,  9, 10, 11, -1, 12,
-		13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, -1, 26, 27,
-		28, -1, 29, -1, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41,
-		42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, -1, 53, 54, 55, 56,
-		-1, 57
-	};
-	_numSfx = NUM_SFXS;
-	_sfxList = (SoundFx *)calloc(_numSfx, sizeof(SoundFx));
-	if (!_sfxList) {
-		return;
-	}
-	static const int kHeaderSize = 0x24;
-	static const int kSoundType = 4;
-	for (int i = 0; i < NUM_SFXS; ++i) {
-		const int num = table[i];
-		if (num != -1) {
-			assert(num >= 0 && num < _mac->_types[kSoundType].count);
-			const ResourceMacEntry *entry = &_mac->_entries[kSoundType][num];
-			_mac->_f.seek(_mac->_dataOffset + entry->dataOffset);
-			int dataSize = _mac->_f.readUint32BE();
-			assert(dataSize > kHeaderSize);
-			uint8_t buf[kHeaderSize];
-			_mac->_f.read(buf, kHeaderSize);
-			dataSize -= kHeaderSize;
-			uint8_t *p = (uint8_t *)malloc(dataSize);
-			if (p) {
-				_mac->_f.read(p, dataSize);
-				for (int j = 0; j < dataSize; ++j) {
-					p[j] ^= 0x80;
-				}
-				_sfxList[i].len = READ_BE_UINT32(buf + 0x12);
-				_sfxList[i].freq = READ_BE_UINT16(buf + 0x16);
-				_sfxList[i].data = p;
-				debug(DBG_RES, "sfx #%d len %d datasize %d freq %d", i, _sfxList[i].len, dataSize, _sfxList[i].freq);
-			}
-		}
-	}
 }

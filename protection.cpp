@@ -5,7 +5,6 @@
  */
 
 #include "game.h"
-#include "screenshot.h"
 #include "systemstub.h"
 
 static uint8_t reverseBits(uint8_t ch) {
@@ -62,16 +61,6 @@ bool Game::handleProtectionScreenShape() {
 				}
 				fprintf(stdout, "\n");
 			}
-		}
-	}
-	if (0) {
-		uint8_t palette[256 * 3];
-		_stub->getPalette(palette, 256);
-		for (int shape = 0; shape < 30; ++shape) {
-			_cut.drawProtectionShape(shape, 0);
-			char fname[32];
-			snprintf(fname, sizeof(fname), "shape_%02d.bmp", shape);
-			saveBMP(fname, _vid._tempLayer, palette, _vid._w, _vid._h);
 		}
 	}
 	const int shapeNum = getRandomNumber() % 30;

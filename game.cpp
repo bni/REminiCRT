@@ -5,25 +5,22 @@
  */
 
 #include <time.h>
-#include "decode_mac.h"
 #include "file.h"
 #include "fs.h"
 #include "game.h"
-#include "seq_player.h"
 #include "systemstub.h"
 #include "unpack.h"
 #include "util.h"
 
-Game::Game(SystemStub *stub, FileSystem *fs, const char *savePath, int level, ResourceType ver, Language lang, WidescreenMode widescreenMode, bool autoSave)
+Game::Game(SystemStub *stub, FileSystem *fs, const char *savePath, int level, ResourceType ver, Language lang, bool autoSave)
 	: _cut(&_res, stub, &_vid), _menu(&_res, stub, &_vid),
-	_mix(fs, stub), _res(fs, ver, lang), _seq(stub, &_mix), _vid(&_res, stub, widescreenMode),
+	_mix(fs, stub), _res(fs, ver, lang), _vid(&_res, stub),
 	_stub(stub), _fs(fs), _savePath(savePath) {
 	_stateSlot = 1;
 	_inp_demPos = 0;
 	_skillLevel = _menu._skill = kSkillNormal;
 	_currentLevel = _menu._level = level;
 	_demoBin = -1;
-	_widescreenMode = widescreenMode;
 	_autoSave = autoSave;
 	_rewindPtr = -1;
 	_rewindLen = 0;
@@ -44,20 +41,13 @@ void Game::run() {
 		break;
 	case kResourceTypeDOS:
 		_res.load("FB_TXT", Resource::OT_FNT);
-		if (g_options.use_seq_cutscenes) {
-			_res._hasSeqData = _fs->exists("INTRO.SEQ");
-		}
 		if (_fs->exists("logosssi.cmd")) {
 			_cut._patchedOffsetsTable = Cutscene::_ssiOffsetsTable;
 		}
 		break;
-	case kResourceTypeMac:
-		_res.MAC_loadClutData();
-		_res.MAC_loadFontData();
-		break;
 	}
 
-	if (!g_options.bypass_protection && !g_options.use_words_protection && !_res.isMac()) {
+	if (!g_options.bypass_protection && !g_options.use_words_protection) {
 		while (!handleProtectionScreenShape()) {
 			if (_stub->_pi.quit) {
 				return;
@@ -68,12 +58,6 @@ void Game::run() {
 	_mix.init();
 	_mix._mod._isAmiga = _res.isAmiga();
 
-	if (_res.isMac()) {
-		displayTitleScreenMac(Menu::kMacTitleScreen_MacPlay);
-		if (!_stub->_pi.quit) {
-			displayTitleScreenMac(Menu::kMacTitleScreen_Presage);
-		}
-	}
 	playCutscene(0x40);
 	playCutscene(0x0D);
 
@@ -89,11 +73,6 @@ void Game::run() {
 		_res.load("PERSO", Resource::OT_SPR);
 		_res.load_SPR_OFF("PERSO", _res._spr1);
 		_res.load_FIB("GLOBAL");
-		break;
-	case kResourceTypeMac:
-		_res.MAC_loadIconData();
-		_res.MAC_loadPersoData();
-		_res.MAC_loadSounds();
 		break;
 	}
 
@@ -139,16 +118,10 @@ void Game::run() {
 				displayTitleScreenAmiga();
 				_stub->setScreenSize(Video::GAMESCREEN_W, Video::GAMESCREEN_H);
 				break;
-			case kResourceTypeMac:
-				displayTitleScreenMac(Menu::kMacTitleScreen_Flashback);
-				break;
 			}
 		}
 		if (_stub->_pi.quit) {
 			break;
-		}
-		if (_stub->hasWidescreen()) {
-			_stub->clearWidescreen();
 		}
 		if (_currentLevel == 7) {
 			_vid.fadeOut();
@@ -259,95 +232,6 @@ void Game::displayTitleScreenAmiga() {
 		_stub->sleep(30);
 	}
 	free(buf);
-}
-
-void Game::displayTitleScreenMac(int num) {
-	const int w = 512;
-	int h = 384;
-	int clutBaseColor = 0;
-	switch (num) {
-	case Menu::kMacTitleScreen_MacPlay:
-		break;
-	case Menu::kMacTitleScreen_Presage:
-		clutBaseColor = 12;
-		break;
-	case Menu::kMacTitleScreen_Flashback:
-	case Menu::kMacTitleScreen_LeftEye:
-	case Menu::kMacTitleScreen_RightEye:
-		h = 448;
-		break;
-	case Menu::kMacTitleScreen_Controls:
-		break;
-	}
-	DecodeBuffer buf;
-	memset(&buf, 0, sizeof(buf));
-	buf.ptr = _vid._frontLayer;
-	buf.pitch = buf.w = _vid._w;
-	buf.h = _vid._h;
-	buf.x = (_vid._w - w) / 2;
-	buf.y = (_vid._h - h) / 2;
-	buf.setPixel = Video::MAC_setPixel;
-	memset(_vid._frontLayer, 0, _vid._layerSize);
-	_res.MAC_loadTitleImage(num, &buf);
-	for (int i = 0; i < 12; ++i) {
-		Color palette[16];
-		_res.MAC_copyClut16(palette, 0, clutBaseColor + i);
-		const int basePaletteColor = i * 16;
-		for (int j = 0; j < 16; ++j) {
-			_stub->setPaletteEntry(basePaletteColor + j, &palette[j]);
-		}
-	}
-	if (num == Menu::kMacTitleScreen_MacPlay) {
-		Color palette[16];
-		_res.MAC_copyClut16(palette, 0, 56);
-		for (int i = 12; i < 16; ++i) {
-			const int basePaletteColor = i * 16;
-			for (int j = 0; j < 16; ++j) {
-				_stub->setPaletteEntry(basePaletteColor + j, &palette[j]);
-			}
-		}
-	} else if (num == Menu::kMacTitleScreen_Presage) {
-		Color c;
-		c.r = c.g = c.b = 0;
-		_stub->setPaletteEntry(0, &c);
-	} else if (num == Menu::kMacTitleScreen_Flashback) {
-		_vid.setTextPalette();
-		_vid._charShadowColor = 0xE0;
-	}
-	_stub->copyRect(0, 0, _vid._w, _vid._h, _vid._frontLayer, _vid._w);
-	_stub->updateScreen(0);
-	while (1) {
-		if (num == Menu::kMacTitleScreen_Flashback) {
-			static const uint8_t selectedColor = 0xE4;
-			static const uint8_t defaultColor = 0xE8;
-			for (int i = 0; i < 7; ++i) {
-				const char *str = Menu::_levelNames[i];
-				_vid.drawString(str, 24, 24 + i * 16, (_currentLevel == i) ? selectedColor : defaultColor);
-			}
-			if (_stub->_pi.dirMask & PlayerInput::DIR_UP) {
-				_stub->_pi.dirMask &= ~PlayerInput::DIR_UP;
-				if (_currentLevel > 0) {
-					--_currentLevel;
-				}
-			}
-			if (_stub->_pi.dirMask & PlayerInput::DIR_DOWN) {
-				_stub->_pi.dirMask &= ~PlayerInput::DIR_DOWN;
-				if (_currentLevel < 6) {
-					++_currentLevel;
-				}
-			}
-			_vid.updateScreen();
-		}
-		_stub->processEvents();
-		if (_stub->_pi.quit) {
-			break;
-		}
-		if (_stub->_pi.enter) {
-			_stub->_pi.enter = false;
-			break;
-		}
-		_stub->sleep(30);
-	}
 }
 
 void Game::resetGameState() {
@@ -482,100 +366,23 @@ void Game::playCutscene(int id) {
 		_cut._id = id;
 	}
 	if (_cut._id != 0xFFFF) {
-		if (_stub->hasWidescreen()) {
-			_stub->enableWidescreen(false);
-		}
 		_mix.stopMusic();
-		if (_res._hasSeqData) {
-			int num = 0;
-			switch (_cut._id) {
-			case 0x02: {
-					static const uint8_t tab[] = { 1, 2, 1, 3, 3, 4, 4 };
-					num = tab[_currentLevel];
-				}
-				break;
-			case 0x05: {
-					static const uint8_t tab[] = { 1, 2, 3, 5, 5, 4, 4 };
-					num = tab[_currentLevel];
-				}
-				break;
-			case 0x0A: {
-					static const uint8_t tab[] = { 1, 2, 2, 2, 2, 2, 2 };
-					num = tab[_currentLevel];
-				}
-				break;
-			case 0x10: {
-					static const uint8_t tab[] = { 1, 1, 1, 2, 2, 3, 3 };
-					num = tab[_currentLevel];
-				}
-				break;
-			case 0x3C: {
-					static const uint8_t tab[] = { 1, 1, 1, 1, 1, 2, 2 };
-					num = tab[_currentLevel];
-				}
-				break;
-			case 0x40:
-				return;
-			case 0x4A:
-				return;
-			}
-			if (SeqPlayer::_namesTable[_cut._id]) {
-			        char name[16];
-			        snprintf(name, sizeof(name), "%s.SEQ", SeqPlayer::_namesTable[_cut._id]);
-				char *p = strchr(name, '0');
-				if (p) {
-					*p += num;
-				}
-			        if (playCutsceneSeq(name)) {
-					if (_cut._id == 0x3D) {
-						playCutsceneSeq("CREDITS.SEQ");
-						_cut._interrupted = false;
-					} else {
-						_cut._id = 0xFFFF;
-					}
-					return;
-				}
-			}
-		}
 		if (_cut._id != 0x4A) {
 			_mix.playMusic(Cutscene::_musicTable[_cut._id]);
 		}
 		_cut.play();
 		if (id == 0xD && !_cut._interrupted) {
-			const bool extendedIntroduction = (_res._type == kResourceTypeDOS || _res._type == kResourceTypeMac);
+			const bool extendedIntroduction = _res._type == kResourceTypeDOS;
 			if (extendedIntroduction) {
 				_cut._id = 0x4A;
 				_cut.play();
-			}
-		}
-		if (_res._type == kResourceTypeMac && !(id == 0x48 || id == 0x49)) { // continue or score screens
-			// restore palette entries modified by the cutscene player (0xC and 0xD)
-			Color palette[32];
-			_res.MAC_copyClut16(palette, 0, 0x37);
-			_res.MAC_copyClut16(palette, 1, 0x38);
-			for (int i = 0; i < 32; ++i) {
-				_stub->setPaletteEntry(0xC0 + i, &palette[i]);
 			}
 		}
 		if (id == 0x3D) {
 			_cut.playCredits();
 		}
 		_mix.stopMusic();
-		if (_stub->hasWidescreen()) {
-			_stub->enableWidescreen(true);
-		}
 	}
-}
-
-bool Game::playCutsceneSeq(const char *name) {
-	File f;
-	if (f.open(name, "rb", _fs)) {
-		_seq.setBackBuffer(_res._scratchBuffer);
-		_seq.play(&f);
-		_vid.fullRefresh();
-		return true;
-	}
-	return false;
 }
 
 void Game::inp_handleSpecialKeys() {
@@ -617,9 +424,6 @@ void Game::drawCurrentInventoryItem() {
 }
 
 void Game::showFinalScore() {
-	if (_stub->hasWidescreen()) {
-		_stub->clearWidescreen();
-	}
 	playCutscene(0x49);
 	char buf[50];
 	snprintf(buf, sizeof(buf), "SCORE %08u", _score);
@@ -682,29 +486,6 @@ bool Game::handleConfigPanel() {
 			_vid._charTransparentColor = 0xE2;
 			for (int i = 1; i < w; ++i) {
 				_vid.PC_drawChar(0x20, y + j, x + i, kUseDefaultFont);
-			}
-		}
-		break;
-	case kResourceTypeMac:
-		// top-left rounded corner
-		_vid.MAC_drawStringChar(_vid._frontLayer, _vid._w, Video::CHAR_W * x,       Video::CHAR_H * y,       _res._fnt, _vid._charFrontColor, 0x81);
-		// top-right rounded corner
-		_vid.MAC_drawStringChar(_vid._frontLayer, _vid._w, Video::CHAR_W * (x + w), Video::CHAR_H * y,       _res._fnt, _vid._charFrontColor, 0x82);
-		// bottom-left rounded corner
-		_vid.MAC_drawStringChar(_vid._frontLayer, _vid._w, Video::CHAR_W * x,       Video::CHAR_H * (y + h), _res._fnt, _vid._charFrontColor, 0x83);
-		// bottom-right rounded corner
-		_vid.MAC_drawStringChar(_vid._frontLayer, _vid._w, Video::CHAR_W * (x + w), Video::CHAR_H * (y + h), _res._fnt, _vid._charFrontColor, 0x84);
-		// horizontal lines
-		for (int i = 1; i < w; ++i) {
-			_vid.MAC_drawStringChar(_vid._frontLayer, _vid._w, Video::CHAR_W * (x + i), Video::CHAR_H * y,       _res._fnt, _vid._charFrontColor, 0x85);
-			_vid.MAC_drawStringChar(_vid._frontLayer, _vid._w, Video::CHAR_W * (x + i), Video::CHAR_H * (y + h), _res._fnt, _vid._charFrontColor, 0x88);
-		}
-		// vertical lines
-		for (int i = 1; i < h; ++i) {
-			_vid.MAC_drawStringChar(_vid._frontLayer, _vid._w, Video::CHAR_W * x,       Video::CHAR_H * (y + i), _res._fnt, _vid._charFrontColor, 0x86);
-			_vid.MAC_drawStringChar(_vid._frontLayer, _vid._w, Video::CHAR_W * (x + w), Video::CHAR_H * (y + i), _res._fnt, _vid._charFrontColor, 0x87);
-			for (int j = 1; j < w; ++j) {
-				_vid.fillRect(Video::CHAR_W * (x + j), Video::CHAR_H * (y + i), Video::CHAR_W, Video::CHAR_H, 0xE2);
 			}
 		}
 		break;
@@ -781,9 +562,6 @@ bool Game::handleConfigPanel() {
 }
 
 bool Game::handleContinueAbort() {
-	if (_stub->hasWidescreen()) {
-		_stub->clearWidescreen();
-	}
 	playCutscene(0x48);
 	int timeout = 100;
 	int current_color = 0;
@@ -908,74 +686,40 @@ void Game::drawStoryTexts() {
 		const uint8_t *str = _res.getGameString(_textToDisplay);
 		memcpy(_vid._tempLayer, _vid._frontLayer, _vid._layerSize);
 		int textSpeechSegment = 0;
-		int textSegmentsCount = 0;
 		while (!_stub->_pi.quit) {
 			drawIcon(_currentInventoryIconNum, 80, 8, 0xA);
 			int yPos = 26;
-			if (_res._type == kResourceTypeMac) {
-				if (textSegmentsCount == 0) {
-					textSegmentsCount = *str++;
-				}
-				int len = *str++;
-				if (*str == '@') {
-					switch (str[1]) {
-					case '1':
-						textColor = 0xE9;
-						break;
-					case '2':
-						textColor = 0xEB;
-						break;
-					default:
-						warning("Unhandled MAC text color code 0x%x", str[1]);
-						break;
-					}
-					str += 2;
-					len -= 2;
-				}
-				for (; len > 0; yPos += 8) {
-					const uint8_t *next = (const uint8_t *)memchr(str, 0x7C, len);
-					if (!next) {
-						_vid.drawStringLen((const char *)str, len, (176 - len * Video::CHAR_W) / 2, yPos, textColor);
-						// point 'str' to beginning of next text segment
-						str += len;
-						break;
-					}
-					const int lineLength = next - str;
-					_vid.drawStringLen((const char *)str, lineLength, (176 - lineLength * Video::CHAR_W) / 2, yPos, textColor);
-					str = next + 1;
-					len -= lineLength + 1;
-				}
-			} else {
-				if (*str == 0xFF) {
-					if (_res._lang == LANG_JP) {
-						switch (str[1]) {
-						case 0:
-							textColor = 0xE9;
-							break;
-						case 1:
-							textColor = 0xEB;
-							break;
-						default:
-							warning("Unhandled JP text color code 0x%x", str[1]);
-							break;
-						}
-						str += 2;
-					} else {
-						textColor = str[1];
-						// str[2] is an unused color (possibly the shadow)
-						str += 3;
-					}
-				}
-				while (1) {
-					const int len = getLineLength(str);
-					str = (const uint8_t *)_vid.drawString((const char *)str, (176 - len * Video::CHAR_W) / 2, yPos, textColor);
-					if (*str == 0 || *str == 0xB) {
-						break;
-					}
-					++str;
-					yPos += 8;
-				}
-			}
+
+            if (*str == 0xFF) {
+                if (_res._lang == LANG_JP) {
+                    switch (str[1]) {
+                    case 0:
+                        textColor = 0xE9;
+                        break;
+                    case 1:
+                        textColor = 0xEB;
+                        break;
+                    default:
+                        warning("Unhandled JP text color code 0x%x", str[1]);
+                        break;
+                    }
+                    str += 2;
+                } else {
+                    textColor = str[1];
+                    // str[2] is an unused color (possibly the shadow)
+                    str += 3;
+                }
+            }
+            while (1) {
+                const int len = getLineLength(str);
+                str = (const uint8_t *)_vid.drawString((const char *)str, (176 - len * Video::CHAR_W) / 2, yPos, textColor);
+                if (*str == 0 || *str == 0xB) {
+                    break;
+                }
+                ++str;
+                yPos += 8;
+            }
+
 			uint8_t *voiceSegmentData = 0;
 			uint32_t voiceSegmentLen = 0;
 			_res.load_VCE(_textToDisplay, textSpeechSegment++, &voiceSegmentData, &voiceSegmentLen);
@@ -995,16 +739,12 @@ void Game::drawStoryTexts() {
 				free(voiceSegmentData);
 			}
 			_stub->_pi.backspace = false;
-			if (_res._type == kResourceTypeMac) {
-				if (textSpeechSegment == textSegmentsCount) {
-					break;
-				}
-			} else {
-				if (*str == 0) {
-					break;
-				}
-				++str;
-			}
+
+            if (*str == 0) {
+                break;
+            }
+            ++str;
+
 			memcpy(_vid._frontLayer, _vid._tempLayer, _vid._layerSize);
 		}
 		_textToDisplay = 0xFFFF;
@@ -1013,13 +753,7 @@ void Game::drawStoryTexts() {
 
 void Game::drawString(const uint8_t *p, int x, int y, uint8_t color, bool hcenter) {
 	const char *str = (const char *)p;
-	int len = 0;
-	if (_res._type == kResourceTypeMac) {
-		len = *p;
-		++str;
-	} else {
-		len = strlen(str);
-	}
+	int len = strlen(str);
 	if (hcenter) {
 		x = (x - len * Video::CHAR_W) / 2;
 	}
@@ -1096,8 +830,6 @@ void Game::prepareAnimsHelper(LivePGE *pge, int16_t dx, int16_t dy) {
 			dw = (int8_t)dataPtr[0];
 			dh = (int8_t)dataPtr[1];
 			break;
-		case kResourceTypeMac:
-			break;
 		}
 		uint8_t w = 0, h = 0;
 		switch (_res._type) {
@@ -1109,8 +841,6 @@ void Game::prepareAnimsHelper(LivePGE *pge, int16_t dx, int16_t dy) {
 			w = dataPtr[2];
 			h = dataPtr[3];
 			dataPtr += 4;
-			break;
-		case kResourceTypeMac:
 			break;
 		}
 		int16_t ypos = dy + pge->pos_y - dh + 2;
@@ -1143,8 +873,6 @@ void Game::prepareAnimsHelper(LivePGE *pge, int16_t dx, int16_t dy) {
 		case kResourceTypeDOS:
 			assert(pge->anim_number < _res._numSpc);
 			dataPtr = _res._spc + READ_BE_UINT16(_res._spc + pge->anim_number * 2);
-			break;
-		case kResourceTypeMac:
 			break;
 		}
 		const int16_t xpos = dx + pge->pos_x + 8;
@@ -1197,9 +925,6 @@ void Game::drawAnimBuffer(uint8_t stateNum, AnimBufferState *state) {
 						drawCharacter(state->dataPtr, state->x, state->y, state->h, state->w, pge->flags);
 					}
 					break;
-				case kResourceTypeMac:
-					drawPiege(state);
-					break;
 				}
 			} else {
 				drawPiege(state);
@@ -1215,20 +940,6 @@ void Game::drawPiege(AnimBufferState *state) {
 	case kResourceTypeAmiga:
 	case kResourceTypeDOS:
 		drawObject(state->dataPtr, state->x, state->y, pge->flags);
-		break;
-	case kResourceTypeMac:
-		if (pge->flags & 8) {
-			_vid.MAC_drawSprite(state->x, state->y, _res._spc, pge->anim_number, (pge->flags & 2) != 0, _eraseBackground);
-		} else if (pge->index == 0) {
-			if (pge->anim_number == 0x386) {
-				break;
-			}
-			const int frame = _res.MAC_getPersoFrame(pge->anim_number);
-			_vid.MAC_drawSprite(state->x, state->y, _res._perso, frame, (pge->flags & 2) != 0, _eraseBackground);
-		} else {
-			const int frame = _res.MAC_getMonsterFrame(pge->anim_number);
-			_vid.MAC_drawSprite(state->x, state->y, _res._monster, frame, (pge->flags & 2) != 0, _eraseBackground);
-		}
 		break;
 	}
 }
@@ -1257,9 +968,6 @@ void Game::drawObject(const uint8_t *dataPtr, int16_t x, int16_t y, uint8_t flag
 	case kResourceTypeDOS:
 		count = dataPtr[5];
 		dataPtr += 6;
-		break;
-	case kResourceTypeMac:
-		assert(0); // different graphics format
 		break;
 	}
 	for (int i = 0; i < count; ++i) {
@@ -1294,9 +1002,6 @@ void Game::drawObjectFrame(const uint8_t *bankDataPtr, const uint8_t *dataPtr, i
 		break;
 	case kResourceTypeDOS:
 		_vid.PC_decodeSpc(src, sprite_w, sprite_h, _res._scratchBuffer);
-		break;
-	case kResourceTypeMac:
-		assert(0); // different graphics format
 		break;
 	}
 
@@ -1513,25 +1218,12 @@ int Game::loadMonsterSprites(LivePGE *pge) {
 				_vid.setPaletteSlotLE(5, _monsterPals[_curMonsterNum]);
 			}
 			break;
-		case kResourceTypeMac: {
-				Color palette[256];
-				_res.MAC_loadMonsterData(_monsterNames[0][_curMonsterNum], palette);
-				static const int kMonsterPalette = 5;
-				for (int i = 0; i < 16; ++i) {
-					const int color = kMonsterPalette * 16 + i;
-					_stub->setPaletteEntry(color, &palette[color]);
-				}
-			}
-			break;
 		}
 	}
 	return 0xFFFF;
 }
 
 bool Game::hasLevelMap(int level, int room) const {
-	if (_res._type == kResourceTypeMac) {
-		return _res.MAC_hasLevelMap(level, room);
-	}
 	if (_res._map) {
 		return READ_LE_UINT32(_res._map + room * 6) != 0;
 	} else if (_res._lev) {
@@ -1542,7 +1234,6 @@ bool Game::hasLevelMap(int level, int room) const {
 
 void Game::loadLevelMap() {
 	debug(DBG_GAME, "Game::loadLevelMap() room=%d", _currentRoom);
-	bool widescreenUpdated = false;
 	_currentIcon = 0xFF;
 	switch (_res._type) {
 	case kResourceTypeAmiga:
@@ -1572,48 +1263,8 @@ void Game::loadLevelMap() {
 		_vid.AMIGA_decodeLev(_currentLevel, _currentRoom);
 		break;
 	case kResourceTypeDOS:
-		if (_stub->hasWidescreen() && _widescreenMode == kWidescreenAdjacentRooms) {
-			const int leftRoom = _res._ctData[CT_LEFT_ROOM + _currentRoom];
-			if (leftRoom > 0 && hasLevelMap(_currentLevel, leftRoom)) {
-				_vid.PC_decodeMap(_currentLevel, leftRoom);
-				_stub->copyWidescreenLeft(Video::GAMESCREEN_W, Video::GAMESCREEN_H, _vid._backLayer);
-			} else {
-				_stub->copyWidescreenLeft(Video::GAMESCREEN_W, Video::GAMESCREEN_H, 0);
-			}
-			const int rightRoom = _res._ctData[CT_RIGHT_ROOM + _currentRoom];
-			if (rightRoom > 0 && hasLevelMap(_currentLevel, rightRoom)) {
-				_vid.PC_decodeMap(_currentLevel, rightRoom);
-				_stub->copyWidescreenRight(Video::GAMESCREEN_W, Video::GAMESCREEN_H, _vid._backLayer);
-			} else {
-				_stub->copyWidescreenRight(Video::GAMESCREEN_W, Video::GAMESCREEN_H, 0);
-			}
-			widescreenUpdated = true;
-		}
 		_vid.PC_decodeMap(_currentLevel, _currentRoom);
 		break;
-	case kResourceTypeMac:
-		if (_stub->hasWidescreen() && _widescreenMode == kWidescreenAdjacentRooms) {
-			const int leftRoom = _res._ctData[CT_LEFT_ROOM + _currentRoom];
-			if (leftRoom > 0 && hasLevelMap(_currentLevel, leftRoom)) {
-				_vid.MAC_decodeMap(_currentLevel, leftRoom);
-				_stub->copyWidescreenLeft(_vid._w, _vid._h, _vid._backLayer);
-			} else {
-				_stub->copyWidescreenLeft(_vid._w, _vid._h, 0);
-			}
-			const int rightRoom = _res._ctData[CT_RIGHT_ROOM + _currentRoom];
-			if (rightRoom > 0 && hasLevelMap(_currentLevel, rightRoom)) {
-				_vid.MAC_decodeMap(_currentLevel, rightRoom);
-				_stub->copyWidescreenRight(_vid._w, _vid._h, _vid._backLayer);
-			} else {
-				_stub->copyWidescreenRight(_vid._w, _vid._h, 0);
-			}
-			widescreenUpdated = true;
-		}
-		_vid.MAC_decodeMap(_currentLevel, _currentRoom);
-		break;
-	}
-	if (!widescreenUpdated) {
-		_vid.updateWidescreen();
 	}
 }
 
@@ -1691,10 +1342,6 @@ void Game::loadLevelData() {
 		_res.load(lvl->name2, Resource::OT_OBJ);
 		_res.load(lvl->name2, Resource::OT_ANI);
 		_res.load(lvl->name2, Resource::OT_TBN);
-		break;
-	case kResourceTypeMac:
-		_res.MAC_unloadLevelData();
-		_res.MAC_loadLevelData(_currentLevel);
 		break;
 	}
 
@@ -1780,20 +1427,6 @@ void Game::drawIcon(uint8_t iconNum, int16_t x, int16_t y, uint8_t colMask) {
 	case kResourceTypeDOS:
 		_vid.PC_decodeIcn(_res._icn, iconNum, buf);
 		break;
-	case kResourceTypeMac:
-		switch (iconNum) {
-		case 76: // cursor
-			iconNum = 32;
-			break;
-		case 77: // up
-			iconNum = 33;
-			break;
-		case 78: // down
-			iconNum = 34;
-			break;
-		}
-		_vid.MAC_drawSprite(x, y, _res._icn, iconNum, false, true);
-		return;
 	}
 	_vid.drawSpriteSub1(buf, _vid._frontLayer + x + y * _vid._w, 16, 16, 16, colMask << 4);
 	_vid.markBlockAsDirty(x, y, 16, 16, _vid._layerScale);
@@ -1884,9 +1517,6 @@ void Game::handleInventory() {
 					}
 					memset(p + 1, outline_color, 9 * icon_spr_w - 2);
 				}
-				break;
-			case kResourceTypeMac:
-				drawIcon(31, 56, 140, 0xF);
 				break;
 			}
 			if (!display_score) {

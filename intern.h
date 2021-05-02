@@ -98,26 +98,18 @@ enum Language {
 	LANG_DE,
 	LANG_SP,
 	LANG_IT,
-	LANG_JP,
+	LANG_JP
 };
 
 enum ResourceType {
 	kResourceTypeAmiga,
-	kResourceTypeDOS,
-	kResourceTypeMac,
+	kResourceTypeDOS
 };
 
 enum Skill {
 	kSkillEasy = 0,
 	kSkillNormal,
-	kSkillExpert,
-};
-
-enum WidescreenMode {
-	kWidescreenNone,
-	kWidescreenAdjacentRooms,
-	kWidescreenMirrorRoom,
-	kWidescreenBlur,
+	kSkillExpert
 };
 
 struct Options {
@@ -127,7 +119,6 @@ struct Options {
 	bool fade_out_palette;
 	bool use_tile_data;
 	bool use_text_cutscenes;
-	bool use_seq_cutscenes;
 	bool use_words_protection;
 	bool use_white_tshirt;
 	bool play_asc_cutscene;

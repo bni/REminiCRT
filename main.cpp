@@ -11,7 +11,6 @@
 #include "file.h"
 #include "fs.h"
 #include "game.h"
-#include "scaler.h"
 #include "systemstub.h"
 #include "util.h"
 
@@ -21,9 +20,7 @@ static const char *USAGE =
 	"  --datapath=PATH   Path to data files (default 'DATA')\n"
 	"  --savepath=PATH   Path to save files (default '.')\n"
 	"  --levelnum=NUM    Start to level, bypass introduction\n"
-	"  --fullscreen      Fullscreen display\n"
-	"  --widescreen=MODE 16:9 display (adjacent,mirror,blur,none)\n"
-	"  --scaler=NAME@X   Graphics scaler (default 'scale@3')\n"
+	"  --windowed        Windowed (4x) display\n"
 	"  --language=LANG   Language (fr,en,de,sp,it,jp)\n"
 	"  --autosave        Save game state automatically\n"
 ;
@@ -34,15 +31,12 @@ static int detectVersion(FileSystem *fs) {
 		int type;
 		const char *name;
 	} table[] = {
-		{ "DEMO_UK.ABA", kResourceTypeDOS, "DOS (Demo)" },
 		{ "INTRO.SEQ", kResourceTypeDOS, "DOS CD" },
 		{ "MENU1SSI.MAP", kResourceTypeDOS, "DOS SSI" },
 		{ "LEVEL1.MAP", kResourceTypeDOS, "DOS" },
 		{ "LEVEL1.BNQ", kResourceTypeDOS, "DOS (Demo)" },
 		{ "LEVEL1.LEV", kResourceTypeAmiga, "Amiga" },
 		{ "DEMO.LEV", kResourceTypeAmiga, "Amiga (Demo)" },
-		{ "FLASHBACK.BIN", kResourceTypeMac, "Macintosh" },
-		{ "FLASHBACK.RSRC", kResourceTypeMac, "Macintosh" },
 		{ 0, -1, 0 }
 	};
 	for (int i = 0; table[i].filename; ++i) {
@@ -81,7 +75,7 @@ static Language detectLanguage(FileSystem *fs) {
 }
 
 Options g_options;
-const char *g_caption = "REminiscence";
+const char *g_caption = "Flashback";
 
 static void initOptions() {
 	// defaults
@@ -90,7 +84,6 @@ static void initOptions() {
 	g_options.enable_language_selection = false;
 	g_options.fade_out_palette = true;
 	g_options.use_text_cutscenes = false;
-	g_options.use_seq_cutscenes = true;
 	g_options.use_words_protection = false;
 	g_options.use_white_tshirt = false;
 	g_options.play_asc_cutscene = false;
@@ -110,7 +103,6 @@ static void initOptions() {
 		{ "fade_out_palette", &g_options.fade_out_palette },
 		{ "use_tile_data", &g_options.use_tile_data },
 		{ "use_text_cutscenes", &g_options.use_text_cutscenes },
-		{ "use_seq_cutscenes", &g_options.use_seq_cutscenes },
 		{ "use_words_protection", &g_options.use_words_protection },
 		{ "use_white_tshirt", &g_options.use_white_tshirt },
 		{ "play_asc_cutscene", &g_options.play_asc_cutscene },
@@ -121,7 +113,7 @@ static void initOptions() {
 		{ "play_gamesaved_sound", &g_options.play_gamesaved_sound },
 		{ 0, 0 }
 	};
-	static const char *filename = "rs.cfg";
+	static const char *filename = strcat(SDL_GetBasePath(), "rs.cfg");
 	FILE *fp = fopen(filename, "rb");
 	if (fp) {
 		char buf[256];
@@ -155,43 +147,12 @@ static void initOptions() {
 	}
 }
 
-static void parseScaler(char *name, ScalerParameters *scalerParameters) {
-	char *sep = strchr(name, '@');
-	if (sep) {
-		*sep = 0;
-		scalerParameters->factor = atoi(sep + 1);
-	}
-	strncpy(scalerParameters->name, name, sizeof(scalerParameters->name) - 1);
-	scalerParameters->name[sizeof(scalerParameters->name) - 1] = 0;
-}
-
-static WidescreenMode parseWidescreen(const char *mode) {
-	static const struct {
-		const char *name;
-		WidescreenMode mode;
-	} modes[] = {
-		{ "adjacent", kWidescreenAdjacentRooms },
-		{ "mirror", kWidescreenMirrorRoom },
-		{ "blur", kWidescreenBlur },
-		{ 0, kWidescreenNone },
-	};
-	for (int i = 0; modes[i].name; ++i) {
-		if (strcasecmp(modes[i].name, mode) == 0) {
-			return modes[i].mode;
-		}
-	}
-	warning("Unhandled widecreen mode '%s', defaults to 16:9 blur", mode);
-	return kWidescreenBlur;
-}
-
 int main(int argc, char *argv[]) {
-	const char *dataPath = "DATA";
-	const char *savePath = ".";
+	const char *dataPath = strcat(SDL_GetBasePath(), "DATA");
+	const char *savePath = SDL_GetPrefPath(NULL, "Flashback");
 	int levelNum = 0;
-	bool fullscreen = false;
+	bool fullscreen = true;
 	bool autoSave = false;
-	WidescreenMode widescreen = kWidescreenNone;
-	ScalerParameters scalerParameters = ScalerParameters::defaults();
 	int forcedLanguage = -1;
 	if (argc == 2) {
 		// data path as the only command line argument
@@ -205,11 +166,9 @@ int main(int argc, char *argv[]) {
 			{ "datapath",   required_argument, 0, 1 },
 			{ "savepath",   required_argument, 0, 2 },
 			{ "levelnum",   required_argument, 0, 3 },
-			{ "fullscreen", no_argument,       0, 4 },
-			{ "scaler",     required_argument, 0, 5 },
-			{ "language",   required_argument, 0, 6 },
-			{ "widescreen", required_argument, 0, 7 },
-			{ "autosave",   no_argument,       0, 8 },
+			{ "windowed",   no_argument,       0, 4 },
+			{ "language",   required_argument, 0, 5 },
+			{ "autosave",   no_argument,       0, 6 },
 			{ 0, 0, 0, 0 }
 		};
 		int index;
@@ -228,12 +187,9 @@ int main(int argc, char *argv[]) {
 			levelNum = atoi(optarg);
 			break;
 		case 4:
-			fullscreen = true;
+			fullscreen = false;
 			break;
-		case 5:
-			parseScaler(optarg, &scalerParameters);
-			break;
-		case 6: {
+		case 5: {
 				static const struct {
 					int lang;
 					const char *str;
@@ -254,10 +210,7 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			break;
-		case 7:
-			widescreen = parseWidescreen(optarg);
-			break;
-		case 8:
+		case 6:
 			autoSave = true;
 			break;
 		default:
@@ -275,8 +228,8 @@ int main(int argc, char *argv[]) {
 	}
 	const Language language = (forcedLanguage == -1) ? detectLanguage(&fs) : (Language)forcedLanguage;
 	SystemStub *stub = SystemStub_SDL_create();
-	Game *g = new Game(stub, &fs, savePath, levelNum, (ResourceType)version, language, widescreen, autoSave);
-	stub->init(g_caption, g->_vid._w, g->_vid._h, fullscreen, widescreen, &scalerParameters);
+	Game *g = new Game(stub, &fs, savePath, levelNum, (ResourceType)version, language, autoSave);
+	stub->init(g_caption, g->_vid._w, g->_vid._h, fullscreen);
 	g->run();
 	delete g;
 	stub->destroy();

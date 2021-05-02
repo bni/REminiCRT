@@ -32,7 +32,6 @@ struct Video {
 
 	Resource *_res;
 	SystemStub *_stub;
-	WidescreenMode _widescreenMode;
 
 	int _w, _h;
 	int _layerSize;
@@ -51,12 +50,11 @@ struct Video {
 	uint8_t _shakeOffset;
 	drawCharFunc _drawChar;
 
-	Video(Resource *res, SystemStub *stub, WidescreenMode widescreenMode);
+	Video(Resource *res, SystemStub *stub);
 	~Video();
 
 	void markBlockAsDirty(int16_t x, int16_t y, uint16_t w, uint16_t h, int scale);
 	void updateScreen();
-	void updateWidescreen();
 	void fullRefresh();
 	void fadeOut();
 	void fadeOutPalette();
@@ -85,16 +83,10 @@ struct Video {
 	void PC_drawChar(uint8_t c, int16_t y, int16_t x, bool forceDefaultFont = false);
 	void PC_drawStringChar(uint8_t *dst, int pitch, int x, int y, const uint8_t *src, uint8_t color, uint8_t chr);
 	void AMIGA_drawStringChar(uint8_t *dst, int pitch, int x, int y, const uint8_t *src, uint8_t color, uint8_t chr);
-	void MAC_drawStringChar(uint8_t *dst, int pitch, int x, int y, const uint8_t *src, uint8_t color, uint8_t chr);
 	const char *drawString(const char *str, int16_t x, int16_t y, uint8_t col);
 	void drawStringLen(const char *str, int len, int x, int y, uint8_t color);
 	static Color AMIGA_convertColor(const uint16_t color, bool bgr = false);
-	void MAC_decodeMap(int level, int room);
-	static void MAC_setPixel(DecodeBuffer *buf, int x, int y, uint8_t color);
-	static void MAC_setPixelMask(DecodeBuffer *buf, int x, int y, uint8_t color);
-	static void MAC_setPixelFont(DecodeBuffer *buf, int x, int y, uint8_t color);
 	void fillRect(int x, int y, int w, int h, uint8_t color);
-	void MAC_drawSprite(int x, int y, const uint8_t *data, int frame, bool xflip, bool eraseBackground);
 };
 
 #endif // VIDEO_H__

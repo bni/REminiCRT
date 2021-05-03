@@ -1,7 +1,6 @@
 # REminiCRT - Flashback with CRT emulation shader
 
-![Screenshot](https://raw.github.com/bni/REminiCRT/master/screenshot.png)
-_From the intro_
+![Screenshot](https://raw.github.com/bni/REminiCRT/master/screenshot.jpg)
 
 ## Credits
 Original [REminiscence](http://cyxdown.free.fr/reminiscence/) author Gregory Montoir.
@@ -25,9 +24,9 @@ Delphine Software, makers of the 1992 game [Flashback](https://en.wikipedia.org/
 Get dependencies using macports or preferred way.
 
 * SDL2
-* [sdl-gpu](https://github.com/grimfang4/sdl-gpu)
+* [sdl-gpu](https://github.com/grimfang4/sdl-gpu) (You have to build from source)
 * [libmodplug](http://modplug-xmms.sourceforge.net)
-* [macdylibbundler](https://github.com/auriamg/macdylibbundler)
+* [macdylibbundler](https://github.com/auriamg/macdylibbundler) (Only needed for Mac app)
 
 Modify the Makefile for your circumstances, then type:
 

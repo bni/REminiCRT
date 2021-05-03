@@ -1,8 +1,9 @@
 .DS_Store
 /.idea
 
-*.o
-*.d
+/*.o
+/*.d
+/rs
 
 /DATA/*.INS
 /DATA/*.CMD
@@ -32,7 +33,6 @@
 /DATA/*.SPR
 /DATA/*.PAK
 /DATA/mod.flashback*
-/rs
 
 /Flashback.app/Contents/MacOS/rs
 /Flashback.app/Contents/libs/*.dylib
@@ -40,4 +40,5 @@
 /Flashback.app/Contents/Resources/DATA
 /Flashback.app/Contents/Resources/*.shader
 
+/cmake-build-debug
 /libs

@@ -10,7 +10,6 @@
 #include "intern.h"
 #include "file.h"
 
-struct DecodeBuffer;
 struct File;
 struct FileSystem;
 
@@ -169,7 +168,6 @@ struct Resource {
 	int _bankBuffersCount;
 	uint8_t *_dem;
 	int _demLen;
-	uint32_t _resourceMacDataSize;
 	int _clutSize;
 	Color _clut[kClutSize];
 	uint8_t *_perso;
@@ -237,7 +235,7 @@ struct Resource {
 	}
 	const uint8_t *getTextString(int level, int num) const {
 		if (_lang == LANG_JP) {
-			const uint8_t *p = 0;
+			const uint8_t *p;
 			switch (level) {
 			case 0:
 				p = LocaleData::_level1TbnJP;

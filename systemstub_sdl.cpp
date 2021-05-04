@@ -21,7 +21,6 @@ struct SystemStub_SDL : SystemStub {
     GPU_Image* _texture;
     uint32_t _shader;
     GPU_ShaderBlock _block;
-	int _texW, _texH;
 	SDL_GameController *_controller;
 	SDL_PixelFormat *_fmt;
 	const char *_caption;
@@ -35,8 +34,6 @@ struct SystemStub_SDL : SystemStub {
 	bool _fadeOnUpdateScreen;
 	void (*_audioCbProc)(void *, int16_t *, int);
 	void *_audioCbData;
-	int _screenshot;
-	int _wideMargin;
 
 	virtual ~SystemStub_SDL() {}
 	virtual void init(const char *title, int w, int h, bool fullscreen);
@@ -89,7 +86,6 @@ void SystemStub_SDL::init(const char *title, int w, int h, bool fullscreen) {
 	memset(_rgbPalette, 0, sizeof(_rgbPalette));
 	memset(_darkPalette, 0, sizeof(_darkPalette));
 	_screenW = _screenH = 0;
-	_wideMargin = 0;
 	setScreenSize(w, h);
 	_joystick = 0;
 	_controller = 0;
@@ -102,7 +98,6 @@ void SystemStub_SDL::init(const char *title, int w, int h, bool fullscreen) {
 			_joystick = SDL_JoystickOpen(kJoystickIndex);
 		}
 	}
-	_screenshot = 1;
 }
 
 void SystemStub_SDL::destroy() {
@@ -652,9 +647,6 @@ void SystemStub_SDL::unlockAudio() {
 }
 
 void SystemStub_SDL::prepareGraphics() {
-	_texW = _screenW;
-	_texH = _screenH;
-
     //GPU_SetDebugLevel(GPU_DEBUG_LEVEL_MAX);
 
     int flags = 0;

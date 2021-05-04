@@ -103,12 +103,10 @@ struct Game {
 
 	void run();
 	void displayTitleScreenAmiga();
-	void displayTitleScreenMac(int num);
 	void resetGameState();
 	void mainLoop();
 	void updateTiming();
 	void playCutscene(int id = -1);
-	bool playCutsceneSeq(const char *name);
 	bool hasLevelMap(int level, int room) const;
 	void loadLevelMap();
 	void loadLevelData();

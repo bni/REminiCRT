@@ -1229,9 +1229,9 @@ void Cutscene::drawSetShape(const uint8_t *p, uint16_t offset, int x, int y, uin
 			scalePoints(&pt, 1, _vid->_layerScale);
 			_gfx.drawEllipse(color, false, &pt, rx, ry);
 		} else {
-			for (int i = 0; i < verticesCount; ++i) {
-				_vertices[i].x = x + (int16_t)READ_BE_UINT16(p + offset); offset += 2;
-				_vertices[i].y = y + (int16_t)READ_BE_UINT16(p + offset); offset += 2;
+			for (int j = 0; j < verticesCount; ++j) {
+				_vertices[j].x = x + (int16_t)READ_BE_UINT16(p + offset); offset += 2;
+				_vertices[j].y = y + (int16_t)READ_BE_UINT16(p + offset); offset += 2;
 			}
 			scalePoints(_vertices, verticesCount, _vid->_layerScale);
 			_gfx.drawPolygon(color, false, _vertices, verticesCount);

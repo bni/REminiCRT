@@ -37,32 +37,6 @@ bool Game::handleProtectionScreenShape() {
 	_menu._charVar4 = 0xE5;
 	_menu._charVar5 = 0xE2;
 
-	// 5 codes per shape (a code is 6 characters long)
-	if (0) {
-		for (int shape = 0; shape < 30; ++shape) {
-			fprintf(stdout, "Shape #%2d\n", shape);
-			for (int code = 0; code < 5; ++code) {
-				const int offset = (shape * 5 + code) * 6;
-				if (_res.isAmiga()) {
-					fprintf(stdout, "\t ");
-					for (int i = 0; i < 6; ++i) {
-						const char chr = _protectionNumberDataAmiga[(shape * 5 + code) * 6 + i] ^ 0xD7;
-						fprintf(stdout, "%c", chr);
-					}
-					fprintf(stdout, " : ");
-					for (int i = 0; i < 6; ++i) {
-						fprintf(stdout, "%c", _protectionCodeDataAmiga[offset + i] ^ 0xD7);
-					}
-				} else {
-					fprintf(stdout, "\t code %d : ", code + 1);
-					for (int i = 0; i < 6; ++i) {
-						fprintf(stdout, "%c", decryptChar(_protectionCodeData[offset + i]));
-					}
-				}
-				fprintf(stdout, "\n");
-			}
-		}
-	}
 	const int shapeNum = getRandomNumber() % 30;
 	const int codeNum = getRandomNumber() % 5;
 	for (int16_t zoom = 2000; zoom >= 0; zoom -= 100) {
@@ -140,20 +114,6 @@ bool Game::handleProtectionScreenShape() {
 bool Game::handleProtectionScreenWords() {
 	bool valid = false;
 	static const int kWordsCount = 40;
-	if (0) {
-		for (int i = 0; i < kWordsCount * 18; i += 18) {
-			const uint8_t *data = _protectionWordData + i;
-			fprintf(stdout, "page %d column %d line %2d word %d : ", data[0], data[1], data[2], data[3]);
-			for (int j = 4; j < 18; ++j) {
-				const uint8_t ch = decryptChar(data[j]);
-				if (!(ch >= 'A' && ch <= 'Z')) {
-					break;
-				}
-				fprintf(stdout, "%c", ch);
-			}
-			fprintf(stdout, "\n");
-		}
-	}
 
 	_vid.setTextPalette();
 	_vid.setPalette0xF();

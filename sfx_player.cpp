@@ -12,9 +12,6 @@
 // use one third of the volume for master (for comparison, modplug uses a master volume of 128, max 512)
 static const int kMasterVolume = 64 * 3;
 
-// 12 dB/oct Butterworth low-pass filter at 3.3 kHz
-static const bool kLowPassFilter = true;
-
 #define NZEROS 2
 #define NPOLES 2
 static float bw_xf[NZEROS+1], bw_yf[NPOLES+1];
@@ -51,10 +48,8 @@ void SfxPlayer::play(uint8_t num) {
 		_samplesLeft = 0;
 		_mix->setPremixHook(mixCallback, this);
 		_playing = true;
-		if (kLowPassFilter) {
-			memset(bw_xf, 0, sizeof(bw_xf));
-			memset(bw_yf, 0, sizeof(bw_yf));
-		}
+        memset(bw_xf, 0, sizeof(bw_xf));
+        memset(bw_yf, 0, sizeof(bw_yf));
 	}
 }
 
@@ -178,9 +173,7 @@ bool SfxPlayer::mix(int16_t *buf, int len) {
 			_samplesLeft -= count;
 			len -= count;
 			mixSamples(buf, count);
-			if (kLowPassFilter) {
-				butterworth(buf, count);
-			}
+			butterworth(buf, count);
 			buf += count;
 		}
 	}

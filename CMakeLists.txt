@@ -3,6 +3,8 @@ project(REminiCRT)
 
 find_package(SDL2 REQUIRED)
 
+add_definitions(-DUSE_MODPLUG -DUSE_ZLIB)
+
 find_path(
         SDL_GPU_INCLUDE_DIR
         NAMES SDL_gpu.h

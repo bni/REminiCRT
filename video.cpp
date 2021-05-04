@@ -897,10 +897,10 @@ void Video::AMIGA_drawStringChar(uint8_t *dst, int pitch, int x, int y, const ui
 	assert(chr >= 32);
 	AMIGA_decodeIcn(src, chr - 32, _res->_scratchBuffer);
 	src = _res->_scratchBuffer;
-	for (int y = 0; y < 8; ++y) {
-		for (int x = 0; x < 8; ++x) {
-			if (src[x] != 0) {
-				dst[x] = color;
+	for (int y1 = 0; y1 < 8; ++y1) {
+		for (int x1 = 0; x1 < 8; ++x1) {
+			if (src[x1] != 0) {
+				dst[x1] = color;
 			}
 		}
 		src += 16;
@@ -912,14 +912,14 @@ void Video::PC_drawStringChar(uint8_t *dst, int pitch, int x, int y, const uint8
 	dst += y * pitch + x;
 	assert(chr >= 32);
 	src += (chr - 32) * 8 * 4;
-	for (int y = 0; y < 8; ++y) {
-		for (int x = 0; x < 4; ++x) {
-			const uint8_t c1 = src[x] >> 4;
+	for (int y1 = 0; y1 < 8; ++y1) {
+		for (int x1 = 0; x1 < 4; ++x1) {
+			const uint8_t c1 = src[x1] >> 4;
 			if (c1 != 0) {
 				*dst = (c1 == 15) ? color : (0xE0 + c1);
 			}
 			++dst;
-			const uint8_t c2 = src[x] & 15;
+			const uint8_t c2 = src[x1] & 15;
 			if (c2 != 0) {
 				*dst = (c2 == 15) ? color : (0xE0 + c2);
 			}

@@ -149,7 +149,7 @@ static void initOptions() {
 
 int main(int argc, char *argv[]) {
 	const char *dataPath = strcat(SDL_GetBasePath(), "DATA");
-	const char *savePath = SDL_GetPrefPath(NULL, "Flashback");
+	const char *savePath = SDL_GetPrefPath("org.cyxdown", "fb");
 	int levelNum = 0;
 	bool fullscreen = true;
 	bool autoSave = false;

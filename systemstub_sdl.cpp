@@ -232,8 +232,6 @@ void SystemStub_SDL::updateScreen(int shakeOffset) {
 
     GPU_UpdateImageBytes(_texture, NULL, (const uint8_t*)_screenBuffer, _screenW * sizeof(uint32_t));
 
-    GPU_Blit(_texture, NULL, _renderer, 0, 0);
-
     // *** SHADER DRAW ***
     GPU_ActivateShaderProgram(_shader, &_block);
 

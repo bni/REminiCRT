@@ -31,16 +31,13 @@ clean:
 	rm -f $(OBJS) $(DEPS)
 
 app:
+	@rm Flashback.app/Contents/MacOS/rs
 	@cp rs Flashback.app/Contents/MacOS/
-	@cp /opt/local/lib/libSDL2-2.0.0.dylib Flashback.app/Contents/libs/
-	@cp /opt/local/lib/libmodplug.1.dylib Flashback.app/Contents/libs/
-	@cp /opt/local/lib/libz.1.dylib Flashback.app/Contents/libs/
 	@cp rs.cfg Flashback.app/Contents/Resources/
 	@cp vertex.shader Flashback.app/Contents/Resources/
 	@cp pixel.shader Flashback.app/Contents/Resources/
 	@cp -r DATA Flashback.app/Contents/Resources/
-	#@otool -L Flashback.app/Contents/MacOS/rs
-	@../macdylibbundler/dylibbundler -od -b -x Flashback.app/Contents/MacOS/rs
-	#@otool -L Flashback.app/Contents/MacOS/rs
+	@../macdylibbundler/dylibbundler -od -b -x Flashback.app/Contents/MacOS/rs -d ./Flashback.app/Contents/libs/
+	@otool -L Flashback.app/Contents/MacOS/rs
 
 -include $(DEPS)

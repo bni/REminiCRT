@@ -2,8 +2,8 @@
 SDL_CFLAGS   := `sdl2-config --cflags`
 SDL_LIBS     := `sdl2-config --libs`
 
-GPU_CFLAGS := -I/Users/bni/Documents/sdl-gpu/include/SDL2 -D_THREAD_SAFE
-GPU_LIBS := -L/Users/bni/Documents/sdl-gpu/lib -lSDL2_gpu
+GPU_CFLAGS := -I./SDL_gpu/include/SDL2 -D_THREAD_SAFE
+GPU_LIBS := -L./SDL_gpu/lib -lSDL2_gpu
 
 MODPLUG_LIBS := -lmodplug
 ZLIB_LIBS    := -lz
@@ -20,7 +20,7 @@ DEPS = $(SRCS:.cpp=.d)
 
 LIBS = $(SDL_LIBS) $(GPU_LIBS) $(MODPLUG_LIBS) $(ZLIB_LIBS)
 
-LDFLAGS= -framework GLUT -framework OpenGL -framework Cocoa
+LDFLAGS= -framework GLUT -framework OpenGL -framework Cocoa -mmacosx-version-min=15.6
 
 COPY_FILES = $(BUILD_DIR)/rs $(BUILD_DIR)/rs.cfg
 
@@ -31,7 +31,7 @@ clean:
 	rm -f $(OBJS) $(DEPS)
 
 app:
-	@rm Flashback.app/Contents/MacOS/rs
+	@rm -f Flashback.app/Contents/MacOS/rs
 	@cp rs Flashback.app/Contents/MacOS/
 	@cp rs.cfg Flashback.app/Contents/Resources/
 	@cp vertex.shader Flashback.app/Contents/Resources/

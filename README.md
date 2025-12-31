@@ -20,21 +20,18 @@ Delphine Software, makers of the 1992 game [Flashback](https://en.wikipedia.org/
 * ClassicMac asset support.
 * Widescreen modes.
 
-## Build
-Get dependencies using macports or preferred way.
-
+## Build dependencies
+* CMake > 3.19
 * SDL2
 * [sdl-gpu](https://github.com/grimfang4/sdl-gpu) (You have to build from source)
 * [libmodplug](http://modplug-xmms.sourceforge.net)
 * [macdylibbundler](https://github.com/auriamg/macdylibbundler) (Only needed for Mac app)
 
-Modify the Makefile for your circumstances, then type:
-
-`make`
+Use CMake to build the rs executable.
 
 To build Flashback.app (optional):
 
-`make app`
+`./build_app.sh`
 
 ## Assets/DATA
 Requires DATA files from the original game, either DOS (Recommended) or Amiga (Not tested).

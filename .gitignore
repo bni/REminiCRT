@@ -2,8 +2,6 @@
 /.idea
 
 /SDL_gpu
-/*.o
-/*.d
 /rs
 
 /DATA/*.INS

@@ -2,13 +2,21 @@ cmake_minimum_required(VERSION 3.19)
 project(REminiCRT)
 
 find_package(SDL2 REQUIRED)
+find_package(OpenGL REQUIRED)
+find_package(GLUT REQUIRED)
 
 add_definitions(-DUSE_MODPLUG -DUSE_ZLIB)
 
 find_path(
         SDL_GPU_INCLUDE_DIR
         NAMES SDL_gpu.h
-        PATHS /usr/local/include /Users/bni/Documents/sdl-gpu/include
+        PATHS /usr/local/include ${PROJECT_SOURCE_DIR}/SDL_gpu/include/SDL2
+)
+
+find_library(
+        SDL_GPU_LIBRARY
+        libSDL2_gpu.a
+        PATHS ${PROJECT_SOURCE_DIR}/SDL_gpu/lib
 )
 
 find_path(
@@ -17,8 +25,20 @@ find_path(
         PATHS /usr/local/include /opt/local/include
 )
 
+find_library(
+        MODPLUG_LIBRARY
+        libmodplug.dylib
+)
+
+find_library(
+        ZLIB_LIBRARY
+        libz.dylib
+)
+
 include_directories(
         ${SDL2_INCLUDE_DIRS}
+        ${OPENGL_INCLUDE_DIRS}
+        ${GLUT_INCLUDE_DIRS}
         ${SDL_GPU_INCLUDE_DIR}
         ${MODPLUG_INCLUDE_DIR}
 )
@@ -44,4 +64,16 @@ add_executable(
         unpack.cpp
         util.cpp
         video.cpp
+)
+
+set (CMAKE_EXE_LINKER_FLAGS -mmacosx-version-min=15.6)
+
+target_link_libraries(
+        rs
+        ${SDL2_LIBRARIES}
+        ${OPENGL_LIBRARIES}
+        ${GLUT_LIBRARY}
+        ${SDL_GPU_LIBRARY}
+        ${MODPLUG_LIBRARY}
+        ${ZLIB_LIBRARY}
 )

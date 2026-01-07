@@ -3,7 +3,6 @@ project(REminiCRT)
 
 find_package(SDL2 REQUIRED)
 find_package(OpenGL REQUIRED)
-find_package(GLUT REQUIRED)
 
 add_definitions(-DUSE_MODPLUG -DUSE_ZLIB)
 
@@ -30,6 +29,12 @@ find_library(
         libmodplug.dylib
 )
 
+find_path(
+        ZLIB_INCLUDE_DIR
+        NAMES zlib.h
+        PATHS /usr/local/include /opt/local/include
+)
+
 find_library(
         ZLIB_LIBRARY
         libz.dylib
@@ -38,10 +43,12 @@ find_library(
 include_directories(
         ${SDL2_INCLUDE_DIRS}
         ${OPENGL_INCLUDE_DIRS}
-        ${GLUT_INCLUDE_DIRS}
         ${SDL_GPU_INCLUDE_DIR}
         ${MODPLUG_INCLUDE_DIR}
+        ${ZLIB_INCLUDE_DIR}
 )
+
+#set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 add_executable(
         rs
@@ -72,7 +79,6 @@ target_link_libraries(
         rs
         ${SDL2_LIBRARIES}
         ${OPENGL_LIBRARIES}
-        ${GLUT_LIBRARY}
         ${SDL_GPU_LIBRARY}
         ${MODPLUG_LIBRARY}
         ${ZLIB_LIBRARY}

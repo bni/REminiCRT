@@ -39,4 +39,4 @@
 /Flashback.app/Contents/Resources/DATA
 /Flashback.app/Contents/Resources/*.shader
 
-/cmake-build-debug
+/cmake-build-*

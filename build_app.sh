@@ -1,6 +1,6 @@
 #!/bin/sh
 rm -f Flashback.app/Contents/MacOS/rs
-cp cmake-build-debug/rs Flashback.app/Contents/MacOS/
+cp cmake-build-release/rs Flashback.app/Contents/MacOS/
 cp rs.cfg Flashback.app/Contents/Resources/
 cp vertex.shader Flashback.app/Contents/Resources/
 cp pixel.shader Flashback.app/Contents/Resources/

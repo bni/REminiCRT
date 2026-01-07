@@ -70,7 +70,7 @@ SystemStub *SystemStub_SDL_create() {
 }
 
 void SystemStub_SDL::init(const char *title, int w, int h, bool fullscreen) {
-	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK);
+	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER);
     if (fullscreen) {
         SDL_ShowCursor(SDL_DISABLE);
     }
@@ -347,7 +347,7 @@ void SystemStub_SDL::processEvent(const SDL_Event &ev, bool &paused) {
 		break;
 	case SDL_JOYAXISMOTION:
 		if (_joystick) {
-			switch (ev.jaxis.axis) {
+			/*switch (ev.jaxis.axis) {
 			case 0:
 				_pi.dirMask &= ~(PlayerInput::DIR_RIGHT | PlayerInput::DIR_LEFT);
 				if (ev.jaxis.value > kJoystickCommitValue) {
@@ -364,7 +364,7 @@ void SystemStub_SDL::processEvent(const SDL_Event &ev, bool &paused) {
 					_pi.dirMask |= PlayerInput::DIR_UP;
 				}
 				break;
-			}
+			}*/
 		}
 		break;
 	case SDL_JOYBUTTONDOWN:
@@ -389,7 +389,7 @@ void SystemStub_SDL::processEvent(const SDL_Event &ev, bool &paused) {
 		break;
 	case SDL_CONTROLLERAXISMOTION:
 		if (_controller) {
-			switch (ev.caxis.axis) {
+			/*switch (ev.caxis.axis) {
 			case SDL_CONTROLLER_AXIS_LEFTX:
 			case SDL_CONTROLLER_AXIS_RIGHTX:
 				if (ev.caxis.value < -kJoystickCommitValue) {
@@ -416,7 +416,7 @@ void SystemStub_SDL::processEvent(const SDL_Event &ev, bool &paused) {
 					_pi.dirMask &= ~PlayerInput::DIR_DOWN;
 				}
 				break;
-			}
+			}*/
 		}
 		break;
 	case SDL_CONTROLLERBUTTONDOWN:

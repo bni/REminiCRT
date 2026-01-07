@@ -48,8 +48,6 @@ include_directories(
         ${ZLIB_INCLUDE_DIR}
 )
 
-#set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR})
-
 add_executable(
         rs
         collision.cpp
@@ -83,3 +81,8 @@ target_link_libraries(
         ${MODPLUG_LIBRARY}
         ${ZLIB_LIBRARY}
 )
+
+configure_file(rs.cfg rs.cfg COPYONLY)
+configure_file(pixel.shader pixel.shader COPYONLY)
+configure_file(vertex.shader vertex.shader COPYONLY)
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/DATA/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/DATA/)

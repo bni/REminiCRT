@@ -1,8 +1,7 @@
 .DS_Store
 /.idea
-
 /SDL_gpu
-/rs
+/build
 
 /DATA/*.INS
 /DATA/*.CMD
@@ -38,5 +37,3 @@
 /Flashback.app/Contents/Resources/rs.cfg
 /Flashback.app/Contents/Resources/DATA
 /Flashback.app/Contents/Resources/*.shader
-
-/cmake-build-*

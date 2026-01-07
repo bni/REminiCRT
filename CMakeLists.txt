@@ -9,7 +9,7 @@ add_definitions(-DUSE_MODPLUG -DUSE_ZLIB)
 find_path(
         SDL_GPU_INCLUDE_DIR
         NAMES SDL_gpu.h
-        PATHS /usr/local/include ${PROJECT_SOURCE_DIR}/SDL_gpu/include/SDL2
+        PATHS ${PROJECT_SOURCE_DIR}/SDL_gpu/include/SDL2
 )
 
 find_library(

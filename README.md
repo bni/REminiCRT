@@ -27,7 +27,11 @@ Delphine Software, makers of the 1992 game [Flashback](https://en.wikipedia.org/
 * [libmodplug](http://modplug-xmms.sourceforge.net)
 * [macdylibbundler](https://github.com/auriamg/macdylibbundler) (Only needed for Mac app)
 
+Put data files from the original game in DATA/
+
 Use CMake to build the rs executable.
+`cmake -S . -B build -G Ninja`
+`cmake --build build`
 
 To build Flashback.app (optional):
 
@@ -41,6 +45,7 @@ Get Amiga MOD music files from here: [UnExoticA](https://www.exotica.org.uk/wiki
 Put files directly in the DATA/ folder.
 
 ## Run
-1440p or 4K monitor preferred.
+You can run the rs executable in the build directory
+`./rs`
 
 The Mac .app is standalone, with all dependencies inside the bundle.

@@ -12,7 +12,7 @@ Delphine Software, makers of the 1992 game [Flashback](https://en.wikipedia.org/
 * Fullscreen by default.
 * Always preserving original aspect ratio.
 * 4x scale in windowed mode.
-* Mac app bundle.
+* macOS app bundle.
 
 ## Removed features
 * Internal and external scalers.
@@ -23,14 +23,17 @@ Delphine Software, makers of the 1992 game [Flashback](https://en.wikipedia.org/
 ## Build dependencies
 * CMake > 3.19
 * SDL2
-* [sdl-gpu](https://github.com/grimfang4/sdl-gpu) (You have to build from source)
+* [SDL_gpu](https://github.com/grimfang4/sdl-gpu) (You have to build from source)
 * [libmodplug](http://modplug-xmms.sourceforge.net)
-* [macdylibbundler](https://github.com/auriamg/macdylibbundler) (Only needed for Mac app)
+* [zlib](https://www.zlib.net)
+* [macdylibbundler](https://github.com/auriamg/macdylibbundler) (Only needed for building macOS app)
 
 Put data files from the original game in DATA/
 
 Use CMake to build the rs executable.
+
 `cmake -S . -B build -G Ninja`
+
 `cmake --build build`
 
 To build Flashback.app (optional):
@@ -42,10 +45,13 @@ Requires DATA files from the original game, either DOS (Recommended) or Amiga (N
 DOS files from GOG probably work. Filenames should be uppercase.
 
 Get Amiga MOD music files from here: [UnExoticA](https://www.exotica.org.uk/wiki/Flashback).
-Put files directly in the DATA/ folder.
+Put files directly in the DATA/ folder. These should be in lowercase.
 
 ## Run
 You can run the rs executable in the build directory
 `./rs`
 
 The Mac .app is standalone, with all dependencies inside the bundle.
+
+## Future
+Port to SDL3 (Should remove the need for SDL_gpu)

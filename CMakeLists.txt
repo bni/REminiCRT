@@ -14,30 +14,28 @@ find_path(
 
 find_library(
         SDL_GPU_LIBRARY
-        libSDL2_gpu.a
+        NAMES libSDL2_gpu.a
         PATHS ${PROJECT_SOURCE_DIR}/SDL_gpu/lib
 )
 
 find_path(
         MODPLUG_INCLUDE_DIR
         NAMES libmodplug/modplug.h
-        PATHS /usr/local/include /opt/local/include
 )
 
 find_library(
         MODPLUG_LIBRARY
-        libmodplug.dylib
+        NAMES libmodplug.a libmodplug.dylib
 )
 
 find_path(
         ZLIB_INCLUDE_DIR
         NAMES zlib.h
-        PATHS /usr/local/include /opt/local/include
 )
 
 find_library(
         ZLIB_LIBRARY
-        libz.dylib
+        NAMES libz.a
 )
 
 include_directories(
@@ -71,7 +69,9 @@ add_executable(
         video.cpp
 )
 
-set (CMAKE_EXE_LINKER_FLAGS -mmacosx-version-min=15.6)
+if (${APPLE})
+    set(CMAKE_EXE_LINKER_FLAGS -mmacosx-version-min=15.6)
+endif ()
 
 target_link_libraries(
         rs
